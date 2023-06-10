@@ -11,6 +11,7 @@ extern "C" {
 constexpr unsigned square_size = 32;
 
 using u8 = unsigned char;
+using u32 = unsigned int;
 
 struct Pixel {
   u8 alpha;
@@ -68,78 +69,50 @@ Pixel lerp(Pixel const& a, Pixel const& b, float t) {
 void circle(Canvas& canvas, float cx, float cy, float radius, Pixel color) {
   int H = canvas.height;
   int W = canvas.width;
-  auto actual_radius = radius + .5;
+  auto outer_radius = radius + .5;
   auto inner_radius = radius - .5;
+  auto outer_radius_squared = sqr(outer_radius);
+  auto inner_radius_squared = sqr(inner_radius);
 
-  auto i1 = to_pixel(cy - actual_radius, H);
+  auto edgeRange = [&](u32 i, u32 j1, u32 j2, float y2) {
+    for (auto j = j1; j < j2; ++j) {
+      auto x2 = sqr(j + .5f - cx);
+      auto point_radius = sqrt(x2 + y2);
+      auto t = point_radius - inner_radius;
+      auto& pixel = canvas.data[i * canvas.stride + j];
+      pixel = lerp(color, pixel, t);
+    }
+  };
+  auto edgeRow = [&](u32 i) {
+    auto y2 = sqr(i + .5f - cy);
+    auto width = sqrt(outer_radius_squared - y2);
+    auto j1 = to_pixel(cx - width, W);
+    auto j2 = to_pixel(cx + width, W);
+    edgeRange(i, j1, j2, y2);
+  };
+
+  auto i1 = to_pixel(cy - outer_radius, H);
   auto i2 = to_pixel(cy - inner_radius, H);
   auto i3 = to_pixel(cy + inner_radius, H);
-  auto i4 = to_pixel(cy + actual_radius, H);
+  auto i4 = to_pixel(cy + outer_radius, H);
 
-  auto ir2 = inner_radius * inner_radius;
-  auto r2 = actual_radius * actual_radius;
-
-  for (auto i = i1; i < i2; ++i) {
-    auto y = i + .5f;
-    auto v2 = sqr(y - cy);
-    auto row_radius = sqrt(r2 - v2);
-    auto j1 = to_pixel(cx - row_radius, W);
-    auto j2 = to_pixel(cx + row_radius, W);
-    for (auto j = j1; j < j2; ++j) {
-      auto x = j + .5f;
-      auto h2 = sqr(x - cx);
-      auto point_radius = sqrt(h2 + v2);
-      auto t = inner_radius - point_radius + 1;
-      auto& pixel = canvas.data[i * canvas.stride + j];
-      pixel = lerp(pixel, color, t);
-    }
-  }
+  for (auto i = i1; i < i2; ++i)
+    edgeRow(i);
   for (auto i = i2; i < i3; ++i) {
-    auto y = i + .5f;
-    auto v2 = sqr(y - cy);
-    auto row_radius = sqrt(r2 - v2);
-    auto row_inner = sqrt(ir2 - v2);
-    auto j1 = to_pixel(cx - row_radius, W);
-    auto j2 = to_pixel(cx + row_radius, W);
-    auto jj1 = to_pixel(cx - row_inner, W);
-    auto jj2 = to_pixel(cx + row_inner, W);
-
-    for (auto j = j1; j < jj1; ++j) {
-      auto x = j + .5f;
-      auto h2 = sqr(x - cx);
-      auto point_radius = sqrt(h2 + v2);
-      auto t = inner_radius - point_radius + 1;
-      auto& pixel = canvas.data[i * canvas.stride + j];
-      pixel = lerp(pixel, color, t);
-    }
-    for (auto j = jj1; j < jj2; ++j) {
-      auto& pixel = canvas.data[i * canvas.stride + j];
-      pixel = color;
-    }
-    for (auto j = jj2; j < j2; ++j) {
-      auto x = j + .5f;
-      auto h2 = sqr(x - cx);
-      auto point_radius = sqrt(h2 + v2);
-      auto t = inner_radius - point_radius + 1;
-      auto& pixel = canvas.data[i * canvas.stride + j];
-      pixel = lerp(pixel, color, t);
-    }
+    auto y2 = sqr(i + .5f - cy);
+    auto outer_width = sqrt(outer_radius_squared - y2);
+    auto inner_width = sqrt(inner_radius_squared - y2);
+    auto j1 = to_pixel(cx - outer_width, W);
+    auto j2 = to_pixel(cx - inner_width, W);
+    auto j3 = to_pixel(cx + inner_width, W);
+    auto j4 = to_pixel(cx + outer_width, W);
+    edgeRange(i, j1, j2, y2);
+    for (auto j = j2; j < j3; ++j)
+      canvas.data[i * canvas.stride + j] = color;
+    edgeRange(i, j3, j4, y2);
   }
-  for (auto i = i3; i < i4; ++i) {
-    auto y = i + .5f;
-    auto v2 = sqr(y - cy);
-    auto row_radius = sqrt(r2 - v2);
-    auto j1 = to_pixel(cx - row_radius, W);
-    auto j2 = to_pixel(cx + row_radius, W);
-    for (auto j = j1; j < j2; ++j) {
-      auto x = j + .5f;
-      auto h2 = sqr(x - cx);
-      auto point_radius = sqrt(h2 + v2);
-      auto t = inner_radius - point_radius + 1;
-      auto& pixel = canvas.data[i * canvas.stride + j];
-      pixel = lerp(pixel, color, t);
-    }
-  }
+  for (auto i = i3; i < i4; ++i)
+    edgeRow(i);
 }
 
 unsigned long last = clock();
