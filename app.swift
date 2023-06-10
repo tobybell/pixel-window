@@ -11,8 +11,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   var window: NSWindow!
   func applicationDidFinishLaunching(_ notification: Notification) {
     window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 720, height: 540),
-      styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
+      contentRect: NSRect(x: 0, y: 0, width: 511, height: 512),
+      styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
       backing: .buffered, defer: false)
     window.center()
     window.setFrameAutosaveName("Pixel Window")
@@ -51,7 +51,9 @@ class PixelView: NSView {
       let image = try imageBuffer.createCGImage(format: imageFormat)
       let context = NSGraphicsContext.current!.cgContext
       context.draw(image, in: dirtyRect)
-      DispatchQueue.main.async {
+
+      // Uncomment this to continuously re-render.
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
         self.needsDisplay = true
       }
     } catch {
