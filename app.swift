@@ -53,7 +53,7 @@ class PixelView: NSView {
       context.draw(image, in: dirtyRect)
 
       // Uncomment this to continuously re-render.
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+      DispatchQueue.main.async {
         self.needsDisplay = true
       }
     } catch {

@@ -42,18 +42,9 @@ void randomSquare(Canvas& canvas) {
       canvas.data[i * canvas.stride + j] = {255, (unsigned char)(rand() % 255)};
 }
 
-unsigned to_pixel(float coord) {
-  return static_cast<unsigned>(ceil(coord - .5));
-}
-
-unsigned min_pixel(float coord) {
-  auto pixel = static_cast<unsigned>(floor(coord + .5));
-  return std::max(pixel, 0u);
-}
-
-unsigned max_pixel(float coord, unsigned limit) {
-  auto pixel = static_cast<unsigned>(ceil(coord - .5));
-  return std::min(pixel, limit);
+unsigned to_pixel(float coord, unsigned limit) {
+  auto grid = static_cast<int>(ceil(coord - .5));
+  return grid < 0 ? 0 : grid > limit ? limit : grid;
 }
 
 float sqr(float value) {
@@ -75,25 +66,25 @@ Pixel lerp(Pixel const& a, Pixel const& b, float t) {
 }
 
 void circle(Canvas& canvas, float cx, float cy, float radius, Pixel color) {
-  auto H = canvas.height;
-  auto W = canvas.width;
+  int H = canvas.height;
+  int W = canvas.width;
   auto actual_radius = radius + .5;
   auto inner_radius = radius - .5;
 
-  auto i1 = to_pixel(cy - actual_radius);
-  auto i2 = to_pixel(cy + actual_radius);
+  auto i1 = to_pixel(cy - actual_radius, H);
+  auto i2 = to_pixel(cy - inner_radius, H);
+  auto i3 = to_pixel(cy + inner_radius, H);
+  auto i4 = to_pixel(cy + actual_radius, H);
 
   auto ir2 = inner_radius * inner_radius;
   auto r2 = actual_radius * actual_radius;
 
-  auto i = i1;
-  {
-    // top row
+  for (auto i = i1; i < i2; ++i) {
     auto y = i + .5f;
     auto v2 = sqr(y - cy);
     auto row_radius = sqrt(r2 - v2);
-    auto j1 = to_pixel(cx - row_radius);
-    auto j2 = to_pixel(cx + row_radius);
+    auto j1 = to_pixel(cx - row_radius, W);
+    auto j2 = to_pixel(cx + row_radius, W);
     for (auto j = j1; j < j2; ++j) {
       auto x = j + .5f;
       auto h2 = sqr(x - cx);
@@ -103,17 +94,15 @@ void circle(Canvas& canvas, float cx, float cy, float radius, Pixel color) {
       pixel = lerp(pixel, color, t);
     }
   }
-
-  ++i;
-  for (; i + 1 < i2; ++i) {
+  for (auto i = i2; i < i3; ++i) {
     auto y = i + .5f;
     auto v2 = sqr(y - cy);
     auto row_radius = sqrt(r2 - v2);
     auto row_inner = sqrt(ir2 - v2);
-    auto j1 = to_pixel(cx - row_radius);
-    auto j2 = to_pixel(cx + row_radius);
-    auto jj1 = to_pixel(cx - row_inner);
-    auto jj2 = to_pixel(cx + row_inner);
+    auto j1 = to_pixel(cx - row_radius, W);
+    auto j2 = to_pixel(cx + row_radius, W);
+    auto jj1 = to_pixel(cx - row_inner, W);
+    auto jj2 = to_pixel(cx + row_inner, W);
 
     for (auto j = j1; j < jj1; ++j) {
       auto x = j + .5f;
@@ -136,14 +125,12 @@ void circle(Canvas& canvas, float cx, float cy, float radius, Pixel color) {
       pixel = lerp(pixel, color, t);
     }
   }
-
-  {
-    // bottom row
+  for (auto i = i3; i < i4; ++i) {
     auto y = i + .5f;
     auto v2 = sqr(y - cy);
     auto row_radius = sqrt(r2 - v2);
-    auto j1 = to_pixel(cx - row_radius);
-    auto j2 = to_pixel(cx + row_radius);
+    auto j1 = to_pixel(cx - row_radius, W);
+    auto j2 = to_pixel(cx + row_radius, W);
     for (auto j = j1; j < j2; ++j) {
       auto x = j + .5f;
       auto h2 = sqr(x - cx);
@@ -155,20 +142,52 @@ void circle(Canvas& canvas, float cx, float cy, float radius, Pixel color) {
   }
 }
 
-Pixel randomColor() {
-  return {255, static_cast<u8>(arc4random() % 255u), static_cast<u8>(arc4random() % 255u), static_cast<u8>(arc4random() % 255u)};
+unsigned long last = clock();
+float t = 0.;
+
+// SquirrelNoise5 by Squirrel Eiserloh
+constexpr unsigned int noise(int positionX, unsigned int seed) {
+	constexpr unsigned int SQ5_BIT_NOISE1 = 0xd2a80a3f;
+	constexpr unsigned int SQ5_BIT_NOISE2 = 0xa884f197;
+	constexpr unsigned int SQ5_BIT_NOISE3 = 0x6C736F4B;
+	constexpr unsigned int SQ5_BIT_NOISE4 = 0xB79F3ABB;
+	constexpr unsigned int SQ5_BIT_NOISE5 = 0x1b56c4f5;
+
+	unsigned int mangledBits = (unsigned int) positionX;
+	mangledBits *= SQ5_BIT_NOISE1;
+	mangledBits += seed;
+	mangledBits ^= (mangledBits >> 9);
+	mangledBits += SQ5_BIT_NOISE2;
+	mangledBits ^= (mangledBits >> 11);
+	mangledBits *= SQ5_BIT_NOISE3;
+	mangledBits ^= (mangledBits >> 13);
+	mangledBits += SQ5_BIT_NOISE4;
+	mangledBits ^= (mangledBits >> 15);
+	mangledBits *= SQ5_BIT_NOISE5;
+	mangledBits ^= (mangledBits >> 17);
+	return mangledBits;
 }
 
 void paint(unsigned* data, unsigned width, unsigned height, unsigned row) {
   unsigned long start = clock();
   Canvas canvas {reinterpret_cast<Pixel*>(data), width, height, row};
   clear(canvas);
-  randomSquare(canvas);
+  // randomSquare(canvas);
+
+  t += (start - last) / 200000.f;
+  last = start;
+
   for (auto i = 0u; i < 100; ++i) {
-    auto radius = (arc4random() % 100u + 20u) / 5.f;
-    auto center_x = width / 4 + arc4random() % width / 2.f;
-    auto center_y = height / 4 + arc4random() % height / 2.f;
-    circle(canvas, center_x, center_y, radius, randomColor());
+
+    auto radius = (noise(i, 0) % 100u + 20u) / 5.f;
+    auto phase = (noise(i, 6) % 628) / 100.f;
+    auto speed = (noise(i, 7) % 200) / 100.f;
+    auto center_x = noise(i, 1) % width + 10.f * sinf(speed * t + phase);
+    auto center_y = noise(i, 2) % height + 10.f * cosf(speed * t + phase);
+    
+    Pixel color {255, static_cast<u8>(noise(i, 3) % 255u), static_cast<u8>(noise(i, 4) % 255u), static_cast<u8>(noise(i, 5) % 255u)};
+
+    circle(canvas, center_x, center_y, radius, color);
   }
   printf("rendered %lu\n", clock() - start);
 }
