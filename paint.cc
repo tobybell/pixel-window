@@ -168,6 +168,12 @@ constexpr unsigned int noise(int positionX, unsigned int seed) {
 	return mangledBits;
 }
 
+Pixel colorNoise(int position, unsigned int seed) {
+  return {255, static_cast<u8>(noise(3 * position, seed) % 255u),
+               static_cast<u8>(noise(3 * position + 1, seed) % 255u),
+               static_cast<u8>(noise(3 * position + 2, seed) % 255u)};
+}
+
 void paint(unsigned* data, unsigned width, unsigned height, unsigned row) {
   unsigned long start = clock();
   Canvas canvas {reinterpret_cast<Pixel*>(data), width, height, row};
@@ -178,15 +184,12 @@ void paint(unsigned* data, unsigned width, unsigned height, unsigned row) {
   last = start;
 
   for (auto i = 0u; i < 100; ++i) {
-
     auto radius = (noise(i, 0) % 100u + 20u) / 5.f;
-    auto phase = (noise(i, 6) % 628) / 100.f;
-    auto speed = (noise(i, 7) % 200) / 100.f;
-    auto center_x = noise(i, 1) % width + 10.f * sinf(speed * t + phase);
-    auto center_y = noise(i, 2) % height + 10.f * cosf(speed * t + phase);
-    
-    Pixel color {255, static_cast<u8>(noise(i, 3) % 255u), static_cast<u8>(noise(i, 4) % 255u), static_cast<u8>(noise(i, 5) % 255u)};
-
+    auto phase = (noise(i, 1) % 628) / 100.f;
+    auto speed = (noise(i, 2) % 200) / 100.f;
+    auto center_x = noise(i, 3) % width + 10.f * sinf(speed * t + phase);
+    auto center_y = noise(i, 4) % height + 10.f * cosf(speed * t + phase);
+    auto color = colorNoise(i, 5);
     circle(canvas, center_x, center_y, radius, color);
   }
   printf("rendered %lu\n", clock() - start);
