@@ -16,6 +16,64 @@ constexpr unsigned square_size = 32;
 using u8 = unsigned char;
 using u32 = unsigned int;
 
+using std::exchange;
+
+struct Blob {
+  Blob(): data() {}
+  Blob(unsigned size);
+  Blob(Blob const&) = delete;
+  Blob(Blob&& other): data(exchange(other.data, nullptr)) {}
+  Blob(Blob&& other, unsigned size);
+  ~Blob();
+  void operator=(Blob&& other) { data = exchange(other.data, nullptr); }
+  char& operator[](unsigned i) { return data[i]; }
+  char const& operator[](unsigned i) const { return data[i]; }
+
+private:
+  char* data;
+};
+
+Blob::Blob(unsigned size): data((char*) malloc(size)) {}
+
+Blob::Blob(Blob&& other, unsigned size):
+  data((char*) realloc(exchange(other.data, nullptr), size)) {}
+
+Blob::~Blob() { free(exchange(data, nullptr)); }
+
+template <class T>
+constexpr bool is_trivial = std::is_trivial_v<T>;
+
+template <class T>
+struct List {
+  static_assert(is_trivial<T>);
+  void push(T const& x) {
+    expand(count + 1);
+    begin()[count++] = x;
+  }
+  T const& operator[](u32 index) const { return begin()[index]; }
+  T* begin() { return reinterpret_cast<T*>(&data[0]); }
+  T const* begin() const { return reinterpret_cast<T const*>(&data[0]); }
+  T* end() { return begin() + count; }
+  T const* end() const { return begin() + count; }
+  friend u32 len(List const& list) { return list.count; }
+private:
+  Blob data;
+  u32 count {};
+  u32 capacity {};
+  T* at(u32 index) { return reinterpret_cast<T*>(&data[0]) + index; }
+  void expand(u32 needed) {
+    if (capacity >= needed)
+      return;
+    if (!capacity) {
+      capacity = needed;
+    } else {
+      while (capacity < needed)
+        capacity *= 2;
+    }
+    data = Blob(std::move(data), capacity * sizeof(T));
+  }
+};
+
 struct Pixel {
   u8 alpha;
   u8 red;
@@ -151,6 +209,12 @@ struct System {
   unsigned long last = clock();
   float t = 0.;
 
+  struct Circle {
+    float x;
+    float y;
+  };
+  List<Circle> circles;
+
   void paint(unsigned* data, unsigned width, unsigned height, unsigned row) {
     unsigned long start = clock();
     Canvas canvas {reinterpret_cast<Pixel*>(data), width, height, row};
@@ -160,12 +224,13 @@ struct System {
     t += (start - last) / 200000.f;
     last = start;
 
-    for (auto i = 0u; i < 100; ++i) {
+    for (auto i = 0u; i < len(circles); ++i) {
+      auto& parameters = circles[i];
       auto radius = (noise(i, 0) % 100u + 20u) / 5.f;
       auto phase = (noise(i, 1) % 628) / 100.f;
       auto speed = (noise(i, 2) % 200) / 100.f;
-      auto center_x = noise(i, 3) % width + 10.f * sinf(speed * t + phase);
-      auto center_y = noise(i, 4) % height + 10.f * cosf(speed * t + phase);
+      auto center_x = parameters.x + 10.f * sinf(speed * t + phase);
+      auto center_y = parameters.y + 10.f * cosf(speed * t + phase);
       auto color = colorNoise(i, 5);
       circle(canvas, center_x, center_y, radius, color);
     }
@@ -173,6 +238,7 @@ struct System {
   }
   void mouseDown(float x, float y) {
     printf("sys mousedown %f %f\n", x, y);
+    circles.push({x, y});
   }
 };
 
