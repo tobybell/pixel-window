@@ -7,6 +7,9 @@ extern "C" {
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
+#include <new>
+
+namespace {
 
 constexpr unsigned square_size = 32;
 
@@ -115,9 +118,6 @@ void circle(Canvas& canvas, float cx, float cy, float radius, Pixel color) {
     edgeRow(i);
 }
 
-unsigned long last = clock();
-float t = 0.;
-
 // SquirrelNoise5 by Squirrel Eiserloh
 constexpr unsigned int noise(int positionX, unsigned int seed) {
 	constexpr unsigned int SQ5_BIT_NOISE1 = 0xd2a80a3f;
@@ -147,23 +147,51 @@ Pixel colorNoise(int position, unsigned int seed) {
                static_cast<u8>(noise(3 * position + 2, seed) % 255u)};
 }
 
-void paint(unsigned* data, unsigned width, unsigned height, unsigned row) {
-  unsigned long start = clock();
-  Canvas canvas {reinterpret_cast<Pixel*>(data), width, height, row};
-  clear(canvas);
-  // randomSquare(canvas);
+struct System {
+  unsigned long last = clock();
+  float t = 0.;
 
-  t += (start - last) / 200000.f;
-  last = start;
+  void paint(unsigned* data, unsigned width, unsigned height, unsigned row) {
+    unsigned long start = clock();
+    Canvas canvas {reinterpret_cast<Pixel*>(data), width, height, row};
+    clear(canvas);
+    // randomSquare(canvas);
 
-  for (auto i = 0u; i < 100; ++i) {
-    auto radius = (noise(i, 0) % 100u + 20u) / 5.f;
-    auto phase = (noise(i, 1) % 628) / 100.f;
-    auto speed = (noise(i, 2) % 200) / 100.f;
-    auto center_x = noise(i, 3) % width + 10.f * sinf(speed * t + phase);
-    auto center_y = noise(i, 4) % height + 10.f * cosf(speed * t + phase);
-    auto color = colorNoise(i, 5);
-    circle(canvas, center_x, center_y, radius, color);
+    t += (start - last) / 200000.f;
+    last = start;
+
+    for (auto i = 0u; i < 100; ++i) {
+      auto radius = (noise(i, 0) % 100u + 20u) / 5.f;
+      auto phase = (noise(i, 1) % 628) / 100.f;
+      auto speed = (noise(i, 2) % 200) / 100.f;
+      auto center_x = noise(i, 3) % width + 10.f * sinf(speed * t + phase);
+      auto center_y = noise(i, 4) % height + 10.f * cosf(speed * t + phase);
+      auto color = colorNoise(i, 5);
+      circle(canvas, center_x, center_y, radius, color);
+    }
+    // printf("rendered %lu\n", clock() - start);
   }
-  printf("rendered %lu\n", clock() - start);
+  void mouseDown(float x, float y) {
+    printf("sys mousedown %f %f\n", x, y);
+  }
+};
+
+System* cast(void* pointer) { return reinterpret_cast<System*>(pointer); }
+
+}
+
+void* sysInit() {
+  auto sys = malloc(sizeof(System));
+  new (cast(sys)) System {};
+  return sys;
+}
+void sysKill(void* sys) {
+  cast(sys)->~System();
+  free(sys);
+}
+void sysPaint(void* sys, unsigned* data, unsigned width, unsigned height, unsigned stride) {
+  return cast(sys)->paint(data, width, height, stride);
+}
+void sysMouseDown(void* sys, float x, float y) {
+  return cast(sys)->mouseDown(x, y);
 }

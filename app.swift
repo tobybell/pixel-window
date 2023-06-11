@@ -12,7 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 511, height: 512),
-      styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+      styleMask: [.titled, .closable, .miniaturizable],
       backing: .buffered, defer: false)
     window.center()
     window.setFrameAutosaveName("Pixel Window")
@@ -43,11 +43,24 @@ class PixelView: NSView {
 
   let imageBuffer = makeImageBuffer()
 
+  override var acceptsFirstResponder: Bool { return true }
+
+  override func mouseDown(with event: NSEvent) {
+    if (event.type == .leftMouseDown) {
+      let location = event.locationInWindow;
+      sysMouseDown(sys, Float(location.x), Float(512 - location.y))
+    } else {
+      print("got event \(event)")
+    }
+  }
+
+  let sys = sysInit();
+
   override func draw(_ dirtyRect: NSRect) {
     do {
       let data = imageBuffer.data!
       let pixels = data.bindMemory(to: UInt32.self, capacity: 0)
-      paint(pixels, UInt32(imageBuffer.width), UInt32(imageBuffer.height), UInt32(imageBuffer.rowBytes) / 4)
+      sysPaint(sys, pixels, UInt32(imageBuffer.width), UInt32(imageBuffer.height), UInt32(imageBuffer.rowBytes) / 4)
       let image = try imageBuffer.createCGImage(format: imageFormat)
       let context = NSGraphicsContext.current!.cgContext
       context.draw(image, in: dirtyRect)
