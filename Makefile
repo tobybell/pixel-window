@@ -6,3 +6,6 @@ build/app.o: app.swift header.h
 
 build/system.o: system.cc header.h
 	clang++ -o $@ -c $< -std=c++20 -O -isysroot $(SYSROOT)
+
+run: build/app
+	$<

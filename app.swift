@@ -16,16 +16,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       backing: .buffered, defer: false)
     window.center()
     window.setFrameAutosaveName("Pixel Window")
-    window.contentView = PixelView()
+
+    assert(window.backingScaleFactor == floor(window.backingScaleFactor))
+
+    window.contentView = PixelView(Int(window.backingScaleFactor))
     window.makeKeyAndOrderFront(nil)
     window.delegate = self
+    print(window.backingScaleFactor)
     NSApp.activate(ignoringOtherApps: true)
   }
 }
 
-func makeImageBuffer() -> vImage_Buffer {
+func makeImageBuffer(_ scaleFactor: Int) -> vImage_Buffer {
   do {
-    return try vImage_Buffer(width: 511, height: 512, bitsPerPixel: 32)
+    return try vImage_Buffer(width: scaleFactor * 511, height: scaleFactor * 512, bitsPerPixel: 32)
   } catch {
     print("failed to make image buffer")
     abort()
@@ -33,7 +37,7 @@ func makeImageBuffer() -> vImage_Buffer {
 }
 
 class PixelView: NSView {
-
+  let scaleFactor: Int
   let imageFormat = vImage_CGImageFormat(
       bitsPerComponent: 8,
       bitsPerPixel: 32,
@@ -41,20 +45,33 @@ class PixelView: NSView {
       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.first.rawValue),
       renderingIntent: .defaultIntent)!
 
-  let imageBuffer = makeImageBuffer()
+  let imageBuffer: vImage_Buffer
 
   override var acceptsFirstResponder: Bool { return true }
 
   override func mouseDown(with event: NSEvent) {
     if (event.type == .leftMouseDown) {
       let location = event.locationInWindow;
-      sysMouseDown(sys, Float(location.x), Float(512 - location.y))
+      let scale = Float(scaleFactor)
+      sysMouseDown(sys, Float(location.x) * scale, Float(512 - location.y) * scale)
     } else {
       print("got event \(event)")
     }
   }
 
   let sys = sysInit();
+
+  init(_ scaleFactor: Int) {
+    self.scaleFactor = scaleFactor
+    self.imageBuffer = makeImageBuffer(scaleFactor)
+    super.init(frame: NSRect())
+  }
+
+  required init?(coder: NSCoder) {
+    self.scaleFactor = 1
+    self.imageBuffer = makeImageBuffer(self.scaleFactor)
+    super.init(coder: coder)
+  }
 
   override func draw(_ dirtyRect: NSRect) {
     do {
