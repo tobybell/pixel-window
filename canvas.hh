@@ -19,4 +19,4 @@ struct Canvas {
   u32 stride;
 };
 
-void triangle(Canvas& canvas);
+void triangle(Canvas& canvas, float t);

@@ -11,7 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   var window: NSWindow!
   func applicationDidFinishLaunching(_ notification: Notification) {
     window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 511, height: 512),
+      contentRect: NSRect(x: 0, y: 0, width: 512, height: 512),
       styleMask: [.titled, .closable, .miniaturizable],
       backing: .buffered, defer: false)
     window.center()
@@ -29,7 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 func makeImageBuffer(_ scaleFactor: Int) -> vImage_Buffer {
   do {
-    return try vImage_Buffer(width: scaleFactor * 511, height: scaleFactor * 512, bitsPerPixel: 32)
+    return try vImage_Buffer(width: 100, height: 100, bitsPerPixel: 32)
   } catch {
     print("failed to make image buffer")
     abort()
@@ -52,8 +52,7 @@ class PixelView: NSView {
   override func mouseDown(with event: NSEvent) {
     if (event.type == .leftMouseDown) {
       let location = event.locationInWindow;
-      let scale = Float(scaleFactor)
-      sysMouseDown(sys, Float(location.x) * scale, Float(512 - location.y) * scale)
+      sysMouseDown(sys, Float(location.x / frame.width) * Float(imageBuffer.width), (1 - Float(location.y / frame.height)) * Float(imageBuffer.height))
     } else {
       print("got event \(event)")
     }

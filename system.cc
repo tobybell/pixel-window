@@ -211,7 +211,7 @@ struct System {
       circle(canvas, center_x, center_y, radius, color);
     }
 
-    triangle(canvas);
+    triangle(canvas, t);
     // printf("rendered %lu\n", clock() - start);
   }
   void mouseDown(float x, float y) {
