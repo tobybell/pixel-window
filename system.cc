@@ -2,6 +2,8 @@ extern "C" {
 #include "header.h"
 }
 
+#include "canvas.hh"
+
 #include <ctime>
 #include <cstdio>
 #include <cstdlib>
@@ -12,9 +14,6 @@ extern "C" {
 namespace {
 
 constexpr unsigned square_size = 32;
-
-using u8 = unsigned char;
-using u32 = unsigned int;
 
 using std::exchange;
 
@@ -74,29 +73,13 @@ private:
   }
 };
 
-struct Pixel {
-  u8 alpha;
-  u8 red;
-  u8 green;
-  u8 blue;
-  u8 const& operator[](unsigned i) const { return (&alpha)[i]; }
-  u8& operator[](unsigned i) { return (&alpha)[i]; }
-};
-
-struct Canvas {
-  Pixel* data;
-  unsigned width;
-  unsigned height;
-  unsigned stride;
-};
-
 void clear(Canvas& canvas) {
   for (unsigned i = 0; i < canvas.height; ++i)
     for (unsigned j = 0; j < canvas.width; ++j)
       canvas.data[i * canvas.stride + j] = {255, 255, 255, 255};
 }
 
-void randomSquare(Canvas& canvas) {
+[[maybe_unused]] void randomSquare(Canvas& canvas) {
   unsigned i0 = rand() % (canvas.height - square_size);
   unsigned j0 = rand() % (canvas.width - square_size);
   for (unsigned i = i0; i < i0 + square_size; ++i)
@@ -111,13 +94,6 @@ unsigned to_pixel(float coord, unsigned limit) {
 
 float sqr(float value) {
   return value * value;
-}
-
-Pixel operator+(Pixel const& lhs, Pixel const& rhs) {
-  return {static_cast<unsigned char>(std::min(lhs.alpha + lhs.alpha, 255)),
-          static_cast<unsigned char>(std::min(lhs.red + lhs.red, 255)),
-          static_cast<unsigned char>(std::min(lhs.green + lhs.green, 255)),
-          static_cast<unsigned char>(std::min(lhs.blue + lhs.blue, 255))};
 }
 
 Pixel lerp(Pixel const& a, Pixel const& b, float t) {
@@ -234,6 +210,8 @@ struct System {
       auto color = colorNoise(i, 5);
       circle(canvas, center_x, center_y, radius, color);
     }
+
+    triangle(canvas);
     // printf("rendered %lu\n", clock() - start);
   }
   void mouseDown(float x, float y) {
