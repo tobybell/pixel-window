@@ -31,6 +31,8 @@ void setrow(Canvas& canvas, u32 i, u32 j1, u32 j2, Pixel color) {
 struct Point {
   float x, y;
   Point operator+(Point const& rhs) { return {x + rhs.x, y + rhs.y}; }
+  Point operator-(Point const& rhs) { return {x - rhs.x, y - rhs.y}; }
+  friend float dot(Point a, Point b) { return a.x * b.x + a.y * b.y; }
 };
 
 struct Dir2 {
@@ -72,7 +74,7 @@ Dir2 make_dir(float t) {
   return {cos(t), sin(t)};
 }
 
-void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, float s0, float s1) {
+void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, Point color_root, Point color_dir, float s0, float s1) {
   check(dx >= 0.f);
   check(dy >= 0.f);
 
@@ -100,11 +102,15 @@ void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, 
   auto i2 = max(ia, ib);
 
   for (auto i = i0; i < i1; ++i) {
-    auto y = i + .5f - y0;
-    auto j0 = tmp_to_pixel(x0 + y * slope1);
-    auto j1 = tmp_to_pixel(x0 + y * slope0);
+    auto y = i + .5f;
+    auto dy = y - y0;
+    auto j0 = tmp_to_pixel(x0 + dy * slope1);
+    auto j1 = tmp_to_pixel(x0 + dy * slope0);
     for (auto j = j0; j < j1; ++j) {
-      canvas.data[i * canvas.stride + j] = color;
+      auto x = j + .5f;
+      auto t = dot(Point {x, y} - color_root, color_dir);
+      auto& curr = canvas.data[i * canvas.stride + j];
+      curr = lerp(color, curr, t);
     }
   }
 
@@ -113,34 +119,45 @@ void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, 
   auto x1ref = ia < ib ? x1 : x0 + slope0 * (s1 * dx);
   auto slope = ia < ib ? slope1 : slope0;
   for (auto i = i1; i < i2; ++i) {
-    auto y = i + .5f - yref;
-    auto j0 = tmp_to_pixel(x0ref + y * slope);
-    auto j1 = tmp_to_pixel(x1ref + y * slope);
+    auto y = i + .5f;
+    auto dy = y - yref;
+    auto j0 = tmp_to_pixel(x0ref + dy * slope);
+    auto j1 = tmp_to_pixel(x1ref + dy * slope);
     for (auto j = j0; j < j1; ++j) {
-      canvas.data[i * canvas.stride + j] = color;
+      auto x = j + .5f;
+      auto t = dot(Point {x, y} - color_root, color_dir);
+      auto& curr = canvas.data[i * canvas.stride + j];
+      curr = lerp(color, curr, t);
     }
   }
   for (auto i = i2; i < i3; ++i) {
-    auto y = i + .5f - y3;
-    auto j0 = tmp_to_pixel(x3 + y * slope0);
-    auto j1 = tmp_to_pixel(x3 + y * slope1);
+    auto y = i + .5f;
+    auto dy = y - y3;
+    auto j0 = tmp_to_pixel(x3 + dy * slope0);
+    auto j1 = tmp_to_pixel(x3 + dy * slope1);
     for (auto j = j0; j < j1; ++j) {
-      canvas.data[i * canvas.stride + j] = color;
+      auto x = j + .5f;
+      auto t = dot(Point {x, y} - color_root, color_dir);
+      auto& curr = canvas.data[i * canvas.stride + j];
+      curr = lerp(color, curr, t);
     }
-    
   }
 }
+
+auto p90(Dir2 d) -> Dir2 { return {-d.y, d.x}; }
+auto m90(Dir2 d) -> Dir2 { return {d.y, -d.x}; }
 
 void blit_rectangle(Canvas& canvas, Point corner, float w, float h, Dir2 dir) {
   auto x = corner.x;
   auto y = corner.y;
+  auto color_dir = p90(dir) * (1.f / h);
   if (dir.x < 0 && dir.y < 0)
-    return blit_top_rectangle(canvas, x + w * dir.x - h * dir.y, y + w * dir.y + h * dir.x, -dir.x, -dir.y, w, h);
+    return blit_top_rectangle(canvas, x + w * dir.x - h * dir.y, y + w * dir.y + h * dir.x, -dir.x, -dir.y, corner, color_dir, w, h);
   if (dir.y < 0)
-    return blit_top_rectangle(canvas, x + w * dir.x, y + w * dir.y, -dir.y, dir.x, h, w);
+    return blit_top_rectangle(canvas, x + w * dir.x, y + w * dir.y, -dir.y, dir.x, corner, color_dir, h, w);
   if (dir.x < 0)
-    return blit_top_rectangle(canvas, x - h * dir.y, y + h * dir.x, dir.y, -dir.x, h, w);
-  return blit_top_rectangle(canvas, x, y, dir.x, dir.y, w, h);
+    return blit_top_rectangle(canvas, x - h * dir.y, y + h * dir.x, dir.y, -dir.x, corner, color_dir, h, w);
+  return blit_top_rectangle(canvas, x, y, dir.x, dir.y, corner, color_dir, w, h);
 }
 
 void blit_pie_slice(Canvas& canvas, Point c, float r, Pixel color, Dir2 dir0, Dir2 dir1) {
@@ -235,42 +252,47 @@ auto dir_from_to(Point a, Point b) -> Dir2 {
   return dir(b.x - a.x, b.y - a.y);
 }
 
-auto p90(Dir2 d) -> Dir2 { return {-d.y, d.x}; }
-auto m90(Dir2 d) -> Dir2 { return {d.y, -d.x}; }
+auto len(Point p) -> float {
+  return sqrt(p.x * p.x + p.y * p.y);
+}
 
 }
 
 void triangle(Canvas& canvas, float t) {
   auto tt = .1f * t;
   auto th1 = tt;
-  auto th2 = 1.3f * tt + .5f;
   auto dir0 = make_dir(th1);
-  auto dir1 = make_dir(th2);
 
   auto one_third = Dir2 {-.5f, .5f * sqrt(3.f)};
 
   Point center {.5f * canvas.width, .5f * canvas.height};
 
+  auto blur = 6.f + 5.f * sin(t);
   auto triangle_radius = .35f * canvas.width;
   auto offset = dir0 * triangle_radius;
-  auto side_length = triangle_radius * sqrt(3.f);
-  auto a = center + offset;
-  auto b = center + one_third * offset;
-  auto c = center + one_third * (one_third * offset);
+  auto a0 = center + offset;
+  auto b0 = center + one_third * offset;
+  auto c0 = center + one_third * (one_third * offset);
 
-  // blit_triangle(canvas, c, a, b);
+  auto a = a0 + make_dir(.5f * t) * 5.f;
+  auto b = b0 + make_dir(.8f * t + 1.f) * 5.f;
+  auto c = c0 + make_dir(.6f * t + 2.f) * 5.f;
+
+  blit_triangle(canvas, c, a, b);
+
+  auto vab = b - a;
+  auto vac = c - a;
+  auto vbc = c - b;
 
   auto ab = dir_from_to(a, b);
   auto ac = dir_from_to(a, c);
   auto bc = dir_from_to(b, c);
 
-  blit_pie_slice(canvas, a, 10.f, color, p90(ac), m90(ab));
-  blit_pie_slice(canvas, b, 10.f, color, p90(-ab), m90(bc));
-  blit_pie_slice(canvas, c, 10.f, color, p90(-bc), m90(-ac));
+  blit_pie_slice(canvas, a, blur, color, p90(ac), m90(ab));
+  blit_pie_slice(canvas, b, blur, color, p90(-ab), m90(bc));
+  blit_pie_slice(canvas, c, blur, color, p90(-bc), m90(-ac));
 
-  blit_rectangle(canvas, a, side_length, 10.f, ac);
-  blit_rectangle(canvas, c, side_length, 10.f, -bc);
-  blit_rectangle(canvas, b, side_length, 10.f, -ab);
-  // auto size = min(canvas.width, canvas.height);
-  // blit_rectangle(canvas, .5f * canvas.width, .5f * canvas.height, .35f * size, .15f * size, dir0);
+  blit_rectangle(canvas, a, len(vac), blur, ac);
+  blit_rectangle(canvas, c, len(vbc), blur, -bc);
+  blit_rectangle(canvas, b, len(vab), blur, -ab);
 }
