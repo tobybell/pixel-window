@@ -19,4 +19,10 @@ struct Canvas {
   u32 stride;
 };
 
-void triangle(Canvas& canvas, float t);
+struct Point {
+  float x, y;
+  Point operator+(Point const& rhs) { return {x + rhs.x, y + rhs.y}; }
+  Point operator-(Point const& rhs) { return {x - rhs.x, y - rhs.y}; }
+  Point operator*(float scale) { return {x * scale, y * scale}; }
+  friend float dot(Point a, Point b) { return a.x * b.x + a.y * b.y; }
+};

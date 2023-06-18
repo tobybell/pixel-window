@@ -11,6 +11,9 @@ extern "C" {
 #include <algorithm>
 #include <new>
 
+void triangle(Canvas& canvas, float t, Pixel color);
+void quad(Canvas&, Point const (&points)[4], Pixel color);
+
 namespace {
 
 constexpr unsigned square_size = 32;
@@ -181,6 +184,8 @@ Pixel colorNoise(int position, unsigned int seed) {
                static_cast<u8>(noise(3 * position + 2, seed) % 255u)};
 }
 
+constexpr Pixel red {255, 255, 0, 0};
+
 struct System {
   unsigned long last = clock();
   float t = 0.;
@@ -200,6 +205,7 @@ struct System {
     t += (start - last) / 200000.f;
     last = start;
 
+    triangle(canvas, t, red);
     for (auto i = 0u; i < len(circles); ++i) {
       auto& parameters = circles[i];
       auto radius = (noise(i, 0) % 100u + 20u) / 5.f;
@@ -211,8 +217,8 @@ struct System {
       circle(canvas, center_x, center_y, radius, color);
     }
 
-    triangle(canvas, t);
-    // printf("rendered %lu\n", clock() - start);
+//    triangle(canvas, t + 10.f);
+//    printf("rendered %lu\n", clock() - start);
   }
   void mouseDown(float x, float y) {
     printf("sys mousedown %f %f\n", x, y);
