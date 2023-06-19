@@ -1,6 +1,6 @@
 CFLAGS = -std=c++20 -Ofast -Wunused -isysroot $(SYSROOT)
 
-build/app: build/app.o build/system.o build/triangle.o build/quad.o
+build/app: build/app.o build/system.o build/triangle.o build/bezier.o
 	swiftc -o $@ $^
 
 build/app.o: app.swift header.h
@@ -12,7 +12,7 @@ build/system.o: system.cc header.h canvas.hh
 build/triangle.o: triangle.cc canvas.hh
 	clang++ -o $@ $(CFLAGS) -c $<
 
-build/quad.o: quad.cc canvas.hh
+build/bezier.o: bezier.cc canvas.hh
 	clang++ -o $@ $(CFLAGS) -c $<
 
 run: build/app

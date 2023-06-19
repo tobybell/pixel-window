@@ -29,7 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 func makeImageBuffer(_ scaleFactor: Int) -> vImage_Buffer {
   do {
-    return try vImage_Buffer(width: 512, height: 512, bitsPerPixel: 32)
+    return try vImage_Buffer(width: 128, height: 128, bitsPerPixel: 32)
   } catch {
     print("failed to make image buffer")
     abort()

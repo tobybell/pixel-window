@@ -12,7 +12,7 @@ extern "C" {
 #include <new>
 
 void triangle(Canvas& canvas, float t, Pixel color);
-void quad(Canvas&, Point const (&points)[4], Pixel color);
+void bezier(Canvas&, float t);
 
 namespace {
 
@@ -184,7 +184,7 @@ Pixel colorNoise(int position, unsigned int seed) {
                static_cast<u8>(noise(3 * position + 2, seed) % 255u)};
 }
 
-constexpr Pixel red {255, 255, 0, 0};
+[[maybe_unused]] constexpr Pixel red {255, 255, 0, 0};
 
 struct System {
   unsigned long last = clock();
@@ -205,7 +205,8 @@ struct System {
     t += (start - last) / 200000.f;
     last = start;
 
-    triangle(canvas, t, red);
+    // triangle(canvas, t, red);
+    bezier(canvas, t);
     for (auto i = 0u; i < len(circles); ++i) {
       auto& parameters = circles[i];
       auto radius = (noise(i, 0) % 100u + 20u) / 5.f;
