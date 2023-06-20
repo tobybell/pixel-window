@@ -187,6 +187,8 @@ Pixel colorNoise(int position, unsigned int seed) {
 [[maybe_unused]] constexpr Pixel red {255, 255, 0, 0};
 
 struct System {
+  void (*redraw)(void const*);
+
   unsigned long last = clock();
   float t = 0.;
 
@@ -221,8 +223,9 @@ struct System {
 //    triangle(canvas, t + 10.f);
     printf("rendered %lu\n", clock() - start);
   }
-  void mouseDown(float x, float y) {
+  void mouseDown(void const* user, float x, float y) {
     printf("sys mousedown %f %f\n", x, y);
+    redraw(user);
     circles.push({x, y});
   }
 };
@@ -231,9 +234,9 @@ System* cast(void* pointer) { return reinterpret_cast<System*>(pointer); }
 
 }
 
-void* sysInit() {
+void* sysInit(void (*redraw)(void const*)) {
   auto sys = malloc(sizeof(System));
-  new (cast(sys)) System {};
+  new (cast(sys)) System {redraw};
   return sys;
 }
 void sysKill(void* sys) {
@@ -243,6 +246,6 @@ void sysKill(void* sys) {
 void sysPaint(void* sys, unsigned* data, unsigned width, unsigned height, unsigned stride) {
   return cast(sys)->paint(data, width, height, stride);
 }
-void sysMouseDown(void* sys, float x, float y) {
-  return cast(sys)->mouseDown(x, y);
+void sysMouseDown(void* sys, void const* user, float x, float y) {
+  return cast(sys)->mouseDown(user, x, y);
 }

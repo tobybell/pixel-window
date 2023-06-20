@@ -36,6 +36,11 @@ func makeImageBuffer(_ scaleFactor: Int) -> vImage_Buffer {
   }
 }
 
+func redraw(user: UnsafeRawPointer?) {
+  let view = user!.bindMemory(to: PixelView.self, capacity: 1)
+  view[0].needsDisplay = true
+}
+
 class PixelView: NSView {
   let scaleFactor: Int
   let imageFormat = vImage_CGImageFormat(
@@ -51,25 +56,26 @@ class PixelView: NSView {
 
   override func mouseDown(with event: NSEvent) {
     if (event.type == .leftMouseDown) {
-      let location = event.locationInWindow;
-      sysMouseDown(sys, Float(location.x / frame.width) * Float(imageBuffer.width), (1 - Float(location.y / frame.height)) * Float(imageBuffer.height))
+      let location = event.locationInWindow
+      withUnsafePointer(to: self) {
+        sysMouseDown(sys, $0, Float(location.x / frame.width) * Float(imageBuffer.width), (1 - Float(location.y / frame.height)) * Float(imageBuffer.height))
+      }
     } else {
       print("got event \(event)")
     }
   }
 
-  let sys = sysInit();
+  let sys: UnsafeMutableRawPointer
 
   init(_ scaleFactor: Int) {
+    self.sys = sysInit(redraw);
     self.scaleFactor = scaleFactor
     self.imageBuffer = makeImageBuffer(scaleFactor)
     super.init(frame: NSRect())
   }
 
   required init?(coder: NSCoder) {
-    self.scaleFactor = 1
-    self.imageBuffer = makeImageBuffer(self.scaleFactor)
-    super.init(coder: coder)
+    return nil;
   }
 
   override func draw(_ dirtyRect: NSRect) {
@@ -82,9 +88,9 @@ class PixelView: NSView {
       context.draw(image, in: dirtyRect)
 
       // Uncomment this to continuously re-render.
-      DispatchQueue.main.async {
-        self.needsDisplay = true
-      }
+      // DispatchQueue.main.async {
+      //   self.needsDisplay = true
+      // }
     } catch {
       print("error creating CGImage from buffer")
     }
