@@ -219,7 +219,7 @@ struct System {
     }
 
 //    triangle(canvas, t + 10.f);
-//    printf("rendered %lu\n", clock() - start);
+    printf("rendered %lu\n", clock() - start);
   }
   void mouseDown(float x, float y) {
     printf("sys mousedown %f %f\n", x, y);

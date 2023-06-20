@@ -28,23 +28,6 @@ void setrow(Canvas& canvas, u32 i, u32 j1, u32 j2, Pixel color) {
     canvas.data[i * canvas.stride + j] = color;
 }
 
-struct Dir2 {
-  float x, y;
-  Point operator*(float scale) { return {x * scale, y * scale}; }
-  Point operator*(Point const& rhs) {
-    return {x * rhs.x - y * rhs.y, x * rhs.y + y * rhs.x};
-  }
-  Dir2 operator-() const { return {-x, -y}; }
-  Point operator+(Dir2 const& rhs) { return {x + rhs.x, y + rhs.y}; }
-  Point operator-(Dir2 const& rhs) { return {x - rhs.x, y - rhs.y}; }
-};
-
-struct LinearGradient {
-  Pixel color;
-  Point position;
-  Point direction;
-};
-
 // dedup
 Pixel lerp(Pixel const& a, Pixel const& b, float t) {
   Pixel c;
@@ -62,7 +45,7 @@ void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, LinearGradient const& gradien
   }
 }
 
-auto dir(float x, float y) -> Dir2 {
+auto dir(float x, float y) -> Dir {
   auto d = 1.f / sqrt(x * x + y * y);
   return {d * x, d * y};
 }
@@ -74,7 +57,7 @@ int tmp_to_pixel(float coord) {
   return static_cast<int>(ceil(coord - .5f));
 }
 
-Dir2 make_dir(float t) {
+Dir make_dir(float t) {
   return {cos(t), sin(t)};
 }
 
@@ -133,10 +116,10 @@ void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, 
   }
 }
 
-auto p90(Dir2 d) -> Dir2 { return {-d.y, d.x}; }
-auto m90(Dir2 d) -> Dir2 { return {d.y, -d.x}; }
+auto p90(Dir d) -> Dir { return {-d.y, d.x}; }
+auto m90(Dir d) -> Dir { return {d.y, -d.x}; }
 
-void blit_rectangle(Canvas& canvas, Point corner, float w, float h, Dir2 dir, LinearGradient const& gradient) {
+void blit_rectangle(Canvas& canvas, Point corner, float w, float h, Dir dir, LinearGradient const& gradient) {
   auto x = corner.x;
   auto y = corner.y;
   if (dir.x < 0 && dir.y < 0)
@@ -146,53 +129,6 @@ void blit_rectangle(Canvas& canvas, Point corner, float w, float h, Dir2 dir, Li
   if (dir.x < 0)
     return blit_top_rectangle(canvas, x - h * dir.y, y + h * dir.x, dir.y, -dir.x, gradient, h, w);
   return blit_top_rectangle(canvas, x, y, dir.x, dir.y, gradient, w, h);
-}
-
-void blit_pie_slice(Canvas& canvas, Point c, float r, Pixel color, Dir2 dir0, Dir2 dir1) {
-  auto cx = c.x;
-  auto cy = c.y;
-  auto r2 = sqr(r);
-  auto i_min = tmp_to_pixel(cy - r);
-  auto i_mid = tmp_to_pixel(cy);
-  auto i_max = tmp_to_pixel(cy + r);
-
-  auto i0 = tmp_to_pixel(cy + r * dir0.y);
-  auto i1 = tmp_to_pixel(cy + r * dir1.y);
-
-  auto edge0 = [&, slope0 = dir0.x / dir0.y](float y) { return cx + y * slope0; };
-  auto edge1 = [&, slope1 = dir1.x / dir1.y](float y) { return cx + y * slope1; };
-  auto arc0 = [&](float y) { return cx - sqrt(r2 - y * y); };
-  auto arc1 = [&](float y) { return cx + sqrt(r2 - y * y); };
-
-  auto row = [&canvas, &cx, &r, &color](u32 i, float y2, float x0, float x1) {
-    auto j0 = tmp_to_pixel(x0);
-    auto j1 = tmp_to_pixel(x1);
-    for (auto j = j0; j < j1; ++j) {
-      auto x2 = sqr(j + .5f - cx);
-      auto d = sqrt(x2 + y2) / r;
-      auto t = .5f * (d + 1.f);
-      auto& curr = canvas.data[i * canvas.stride + j];
-      curr = lerp(color, curr, t);
-    }
-  };
-
-  auto ream = [&](u32 i0, u32 i1, auto& left, auto& right) {
-    for (auto i = i0; i < i1; ++i) {
-      auto y = i + .5f - cy;
-      row(i, y * y, left(y), right(y));
-    }
-  };
-
-  ream(dir1.x < dir0.x ? max(i_mid, i0) : i_mid, i1, edge1, arc1);
-  ream(max(i0, i1), i_mid, edge0, edge1);
-  ream(i_mid, min(i0, i1), edge1, edge0);
-  if (dir0.x < 0 ? (dir1.x < 0 && dir0.y < dir1.y) : (dir1.x < 0 || dir1.y < dir0.y))
-    ream(max(i_mid, max(i1, i0)), i_max, arc0, arc1);
-  if (dir0.x < 0 ? (dir1.x > 0 || dir1.y > dir0.y) : (dir1.x > 0 && dir1.y < dir0.y))
-    ream(i_min, min(i_mid, min(i1, i0)), arc0, arc1);
-  ream(dir1.x < dir0.x ? max(i1, i_mid) : i_mid, i0, arc0, edge0);
-  ream(min(i1, i_mid), dir0.x < dir1.x ? min(i_mid, i0) : i_mid, arc0, edge1);
-  ream(min(i0, i_mid), dir0.x < dir1.x ? min(i1, i_mid) : i_mid, edge0, arc1);
 }
 
 void blit_triangle_fragment(Canvas& canvas, Point anchor, float left_slope, float right_slope, u32 i0, u32 i1, auto const& fill) {
@@ -220,7 +156,7 @@ void blit_top_triangle(Canvas& canvas, Point a, Point b, Point c, auto const& fi
   }
 }
 
-void blit_triangle(Canvas& canvas, Point a, Point b, Point c, auto const& fill) {
+void blit_triangle_fill(Canvas& canvas, Point a, Point b, Point c, auto const& fill) {
   if (a.y < b.y) {
     if (b.y < c.y)
       return blit_top_triangle(canvas, a, b, c, fill);
@@ -235,7 +171,7 @@ void blit_triangle(Canvas& canvas, Point a, Point b, Point c, auto const& fill) 
   return blit_top_triangle(canvas, c, b, a, fill);
 }
 
-auto dir_from_to(Point a, Point b) -> Dir2 {
+auto dir_from_to(Point a, Point b) -> Dir {
   return dir(b.x - a.x, b.y - a.y);
 }
 
@@ -243,7 +179,7 @@ auto len(Point p) -> float {
   return sqrt(p.x * p.x + p.y * p.y);
 }
 
-auto cross(Dir2 a, Dir2 b) {
+auto cross(Dir a, Dir b) {
   return a.x * b.y - a.y * b.x;
 }
 
@@ -265,12 +201,67 @@ Triangle inset_triangle(Triangle triangle, float inset) {
     c - (ac + bc) * nc};
 }
 
+void blit_triangle(Canvas& canvas, Point a, Point b, Point c, Pixel color) {
+  blit_triangle_fill(canvas, a, b, c, color);
+}
+
+}
+
+void blit_triangle(Canvas& canvas, Point a, Point b, Point c, LinearGradient const& gradient) {
+  blit_triangle_fill(canvas, a, b, c, gradient);
+}
+
+void blit_pie_slice(Canvas& canvas, Point c, float r, Dir dir0, Dir dir1, Pixel color) {
+  auto cx = c.x;
+  auto cy = c.y;
+  auto r2 = sqr(r);
+  auto i_min = tmp_to_pixel(cy - r);
+  auto i_mid = tmp_to_pixel(cy);
+  auto i_max = tmp_to_pixel(cy + r);
+
+  auto i0 = tmp_to_pixel(cy + r * dir0.y);
+  auto i1 = tmp_to_pixel(cy + r * dir1.y);
+
+  auto edge0 = [&, slope0 = dir0.x / dir0.y](float y) { return cx + y * slope0; };
+  auto edge1 = [&, slope1 = dir1.x / dir1.y](float y) { return cx + y * slope1; };
+  auto arc0 = [&](float y) { return cx - sqrt(r2 - y * y); };
+  auto arc1 = [&](float y) { return cx + sqrt(r2 - y * y); };
+
+  auto row = [&canvas, &cx, &r, &color](u32 i, float y2, float x0, float x1) {
+    auto j0 = tmp_to_pixel(x0);
+    auto j1 = tmp_to_pixel(x1);
+    for (auto j = j0; j < j1; ++j) {
+      auto x2 = sqr(j + .5f - cx);
+      auto d = sqrt(x2 + y2) / r;
+      auto t = d;
+      auto& curr = canvas.data[i * canvas.stride + j];
+      curr = lerp(color, curr, t);
+    }
+  };
+
+  auto ream = [&](u32 i0, u32 i1, auto& left, auto& right) {
+    for (auto i = i0; i < i1; ++i) {
+      auto y = i + .5f - cy;
+      row(i, y * y, left(y), right(y));
+    }
+  };
+
+  ream(dir1.x < dir0.x ? max(i_mid, i0) : i_mid, i1, edge1, arc1);
+  ream(max(i0, i1), i_mid, edge0, edge1);
+  ream(i_mid, min(i0, i1), edge1, edge0);
+  if (dir0.x < 0 ? (dir1.x < 0 && dir0.y < dir1.y) : (dir1.x < 0 || dir1.y < dir0.y))
+    ream(max(i_mid, max(i1, i0)), i_max, arc0, arc1);
+  if (dir0.x < 0 ? (dir1.x > 0 || dir1.y > dir0.y) : (dir1.x > 0 && dir1.y < dir0.y))
+    ream(i_min, min(i_mid, min(i1, i0)), arc0, arc1);
+  ream(dir1.x < dir0.x ? max(i1, i_mid) : i_mid, i0, arc0, edge0);
+  ream(min(i1, i_mid), dir0.x < dir1.x ? min(i_mid, i0) : i_mid, arc0, edge1);
+  ream(min(i0, i_mid), dir0.x < dir1.x ? min(i1, i_mid) : i_mid, edge0, arc1);
 }
 
 void triangle(Canvas& canvas, float t, Pixel color) {
   auto dir0 = make_dir(.1f * t);
 
-  auto one_third = Dir2 {-.5f, .5f * sqrt(3.f)};
+  auto one_third = Dir {-.5f, .5f * sqrt(3.f)};
 
   auto center = Point {.5f * canvas.width, .5f * canvas.height};
 
@@ -293,9 +284,9 @@ void triangle(Canvas& canvas, float t, Pixel color) {
   auto ac = dir_from_to(a, c);
   auto bc = dir_from_to(b, c);
 
-  blit_pie_slice(canvas, a, half, color, p90(ac), m90(ab));
-  blit_pie_slice(canvas, b, half, color, p90(-ab), m90(bc));
-  blit_pie_slice(canvas, c, half, color, p90(-bc), m90(-ac));
+  blit_pie_slice(canvas, a, half, p90(ac), m90(ab), color);
+  blit_pie_slice(canvas, b, half, p90(-ab), m90(bc), color);
+  blit_pie_slice(canvas, c, half, p90(-bc), m90(-ac), color);
 
   auto gab = LinearGradient {color, bi, p90(-ab) * (1.f / blur)};
   auto gbc = LinearGradient {color, ci, p90(-bc) * (1.f / blur)};

@@ -24,5 +24,25 @@ struct Point {
   Point operator+(Point const& rhs) { return {x + rhs.x, y + rhs.y}; }
   Point operator-(Point const& rhs) { return {x - rhs.x, y - rhs.y}; }
   Point operator*(float scale) { return {x * scale, y * scale}; }
+  Point operator/(float scale) { return *this * (1.f / scale); }
   friend float dot(Point a, Point b) { return a.x * b.x + a.y * b.y; }
 };
+
+struct LinearGradient {
+  Pixel color;
+  Point position;
+  Point direction;
+};
+
+struct Dir {
+  float x, y;
+  Point operator*(float scale) { return {x * scale, y * scale}; }
+  Point operator*(Point const& rhs) {
+    return {x * rhs.x - y * rhs.y, x * rhs.y + y * rhs.x};
+  }
+  Dir operator-() const { return {-x, -y}; }
+  Point operator+(Dir const& rhs) { return {x + rhs.x, y + rhs.y}; }
+  Point operator-(Dir const& rhs) { return {x - rhs.x, y - rhs.y}; }
+};
+
+void blit_triangle(Canvas& canvas, Point a, Point b, Point c, LinearGradient const& fill);
