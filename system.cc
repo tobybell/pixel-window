@@ -12,7 +12,7 @@ extern "C" {
 #include <new>
 
 void triangle(Canvas& canvas, float t, Pixel color);
-void bezier(Canvas&, float t);
+void bezier(Canvas&, Point, Point, Point, Point);
 
 namespace {
 
@@ -106,9 +106,11 @@ Pixel lerp(Pixel const& a, Pixel const& b, float t) {
   return c;
 }
 
-void circle(Canvas& canvas, float cx, float cy, float radius, Pixel color) {
+void circle(Canvas& canvas, Point center, float radius, Pixel color) {
   int H = canvas.height;
   int W = canvas.width;
+  auto cx = center.x;
+  auto cy = center.y;
   auto outer_radius = radius + .5;
   auto inner_radius = radius - .5;
   auto outer_radius_squared = sqr(outer_radius);
@@ -185,12 +187,23 @@ Pixel colorNoise(int position, unsigned int seed) {
 }
 
 [[maybe_unused]] constexpr Pixel red {255, 255, 0, 0};
+[[maybe_unused]] constexpr Pixel light_red {255, 255, 127, 127};
+
+float abs2(Point p) { return p.x * p.x + p.y * p.y; }
+
+float len(Point p) { return sqrt(abs2(p)); }
+
+struct Size {
+  float x, y;
+  Point operator*(Point const& rhs) const { return {x * rhs.x, y * rhs.y}; }
+  friend Point operator/(Point const& lhs, Size const& rhs) {
+    return {lhs.x / rhs.x, lhs.y / rhs.y};
+  }
+  Size operator/(Size const& rhs) const { return {x / rhs.x, y / rhs.y}; }
+};
 
 struct System {
   void (*redraw)(void const*);
-
-  unsigned long last = clock();
-  float t = 0.;
 
   struct Circle {
     float x;
@@ -198,35 +211,98 @@ struct System {
   };
   List<Circle> circles;
 
+  Size size {1.f, 1.f};
+  Point p[4] {{.33, .33}, {.67, .33}, {.33, .67}, {.67, .67}};
+  bool over_handle[2] {};
+
+  u32 dragged_point = 0;
+
+  static constexpr float handle_radius = 5.f;
+
   void paint(unsigned* data, unsigned width, unsigned height, unsigned row) {
     unsigned long start = clock();
     Canvas canvas {reinterpret_cast<Pixel*>(data), width, height, row};
     clear(canvas);
     // randomSquare(canvas);
 
-    t += (start - last) / 200000.f;
-    last = start;
+    if (width != size.x || height != size.y) {
+      auto newSize = Size {static_cast<float>(height), static_cast<float>(height)};
+      auto sizeChange = newSize / size;
+      for (u32 i = 0; i < 4; ++i)
+        p[i] = sizeChange * p[i];
+      size = newSize;
+    }
 
     // triangle(canvas, t, red);
-    bezier(canvas, t);
+    bezier(canvas, p[0], p[1], p[2], p[3]);
+
+    if (over_handle[0])
+      circle(canvas, p[0], handle_radius, red);
+    if (over_handle[1])
+      circle(canvas, p[3], handle_radius, red);
+
+    circle(canvas, p[1], handle_radius, light_red);
+    circle(canvas, p[2], handle_radius, light_red);
+
     for (auto i = 0u; i < len(circles); ++i) {
       auto& parameters = circles[i];
       auto radius = (noise(i, 0) % 100u + 20u) / 5.f;
-      auto phase = (noise(i, 1) % 628) / 100.f;
-      auto speed = (noise(i, 2) % 200) / 100.f;
-      auto center_x = parameters.x + 10.f * sinf(speed * t + phase);
-      auto center_y = parameters.y + 10.f * cosf(speed * t + phase);
+      auto center = Point {parameters.x, parameters.y};
       auto color = colorNoise(i, 5);
-      circle(canvas, center_x, center_y, radius, color);
+      circle(canvas, center, radius, color);
     }
 
 //    triangle(canvas, t + 10.f);
-    printf("rendered %lu\n", clock() - start);
+    printf("paint %lu\n", clock() - start);
   }
-  void mouseDown(void const* user, float x, float y) {
-    printf("sys mousedown %f %f\n", x, y);
-    redraw(user);
-    circles.push({x, y});
+  void mouseDown(void const* user, Point location) {
+    if (over_handle[0]) {
+      dragged_point = 1;
+      return;
+    }
+    if (over_handle[1]) {
+      dragged_point = 4;
+      return;
+    }
+
+    if (len(p[1] - location) < handle_radius) {
+      dragged_point = 2;
+      return;
+    }
+    if (len(p[2] - location) < handle_radius) {
+      dragged_point = 3;
+      return;
+    }
+    // circles.push({x, y});
+  }
+  void mouseUp(void const* user, Point location) {
+    printf("sys mouseup %f %f\n", location.x, location.y);
+    dragged_point = 0;
+    // circles.push({x, y});
+  }
+
+  void mouseMoved(void const* user, Point location) {
+
+    if (dragged_point) {
+      auto index = dragged_point - 1;
+      p[index] = location;
+      return redraw(user);
+    }
+
+    auto h0 = len(p[0] - location) < handle_radius;
+    auto h1 = len(p[3] - location) < handle_radius;
+
+    auto dirty = false;
+    if (h0 != over_handle[0]) {
+      over_handle[0] = h0;
+      dirty = true;
+    }
+    if (h1 != over_handle[1]) {
+      over_handle[1] = h1;
+      dirty = true;
+    }
+    if (dirty)
+      redraw(user);
   }
 };
 
@@ -247,5 +323,11 @@ void sysPaint(void* sys, unsigned* data, unsigned width, unsigned height, unsign
   return cast(sys)->paint(data, width, height, stride);
 }
 void sysMouseDown(void* sys, void const* user, float x, float y) {
-  return cast(sys)->mouseDown(user, x, y);
+  return cast(sys)->mouseDown(user, {x, y});
+}
+void sysMouseUp(void* sys, void const* user, float x, float y) {
+  return cast(sys)->mouseUp(user, {x, y});
+}
+void sysMouseMoved(void* sys, void const* user, float x, float y) {
+  return cast(sys)->mouseMoved(user, {x, y});
 }

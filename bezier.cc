@@ -15,14 +15,6 @@ void lerp(Pixel& a, Pixel const& b, float t) {
     a[i] += (b[i] - a[i]) * t;
 }
 
-auto lerp(Point a, Point b, float t) -> Point {
-  return {a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)};
-}
-
-int to_pixel(float coord) {
-  return static_cast<int>(ceil(coord - .5f));
-}
-
 auto sqr(float value) -> float { return value * value; }
 
 template <class T>
@@ -30,7 +22,7 @@ T const& max(T const& a, T const& b) {
   return (a < b) ? b : a;
 }
 
-void point(Canvas& canvas, Point point) {
+[[maybe_unused]] void point(Canvas& canvas, Point point) {
   auto x = point.x - .5f;
   auto y = point.y - .5f;
   auto i0 = static_cast<int>(floor(y));
@@ -41,14 +33,6 @@ void point(Canvas& canvas, Point point) {
   lerp(canvas.data[i0 * canvas.stride + j1], color, max(0.f, 1.f - sqrt(sqr(j1 - x) + sqr(i0 - y))));
   lerp(canvas.data[i1 * canvas.stride + j0], color, max(0.f, 1.f - sqrt(sqr(j0 - x) + sqr(i1 - y))));
   lerp(canvas.data[i1 * canvas.stride + j1], color, max(0.f, 1.f - sqrt(sqr(j1 - x) + sqr(i1 - y))));
-}
-
-auto ofs(float theta) -> Point {
-  return {10.f * cos(theta), 10.f * sin(theta)};
-}
-
-auto len(Point p) -> float {
-  return sqrt(p.x * p.x + p.y * p.y);
 }
 
 constexpr float thickness = 1.f;
@@ -66,12 +50,7 @@ struct Section {
 
 }
 
-void bezier(Canvas& canvas, float t) {
-  auto p0 = Point {canvas.width / 3.f, canvas.height / 3.f} + ofs(.1f * t);
-  auto p1 = Point {2.f * canvas.width / 3.f, canvas.height / 3.f} + ofs(.2f * t);
-  auto p2 = Point {canvas.width / 3.f, 2.f * canvas.height / 3.f} + ofs(.3f * t);
-  auto p3 = Point {2.f * canvas.width / 3.f, 2.f * canvas.height / 3.f} + ofs(.4f * t);
-
+void bezier(Canvas& canvas, Point p0, Point p1, Point p2, Point p3) {
   auto P0 = p0;
   auto P1 = (p1 - p0) * 3.f;
   auto P2 = (p0 - p1 * 2.f + p2) * 3.f;
@@ -90,7 +69,8 @@ void bezier(Canvas& canvas, float t) {
   };
 
   auto last = eval(0.f);
-  for (auto T = .02f; T <= 1.f; T += .02f) {
+  auto dt = pow(.5f, 6.f);
+  for (auto T = dt; T <= 1.f; T += dt) {
     auto next = eval(T);
     auto avg = Section {
       (last.p[0] + next.p[0]) * .5f,

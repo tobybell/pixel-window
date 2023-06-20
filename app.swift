@@ -54,15 +54,39 @@ class PixelView: NSView {
 
   override var acceptsFirstResponder: Bool { return true }
 
+  func systemLocationFor(_ point: CGPoint) -> (Float, Float) {
+    let x = Float(point.x / frame.width) * Float(imageBuffer.width)
+    let y = (1 - Float(point.y / frame.height)) * Float(imageBuffer.height)
+    return (x, y)
+  }
+
   override func mouseDown(with event: NSEvent) {
-    if (event.type == .leftMouseDown) {
-      let location = event.locationInWindow
-      withUnsafePointer(to: self) {
-        sysMouseDown(sys, $0, Float(location.x / frame.width) * Float(imageBuffer.width), (1 - Float(location.y / frame.height)) * Float(imageBuffer.height))
-      }
-    } else {
-      print("got event \(event)")
+    guard event.type == .leftMouseDown else {
+      return print("mouse down event \(event)")
     }
+    let (x, y) = systemLocationFor(event.locationInWindow)
+    withUnsafePointer(to: self) { sysMouseDown(sys, $0, x, y) }
+  }
+
+  override func mouseUp(with event: NSEvent) {
+    guard event.type == .leftMouseUp else {
+      return print("mouse up event \(event)")
+    }
+    let (x, y) = systemLocationFor(event.locationInWindow)
+    withUnsafePointer(to: self) { sysMouseUp(sys, $0, x, y) }
+  }
+
+  override func mouseDragged(with event: NSEvent) {
+    guard event.type == .leftMouseDragged else {
+      return print("mouse dragged event \(event)")
+    }
+    let (x, y) = systemLocationFor(event.locationInWindow)
+    withUnsafePointer(to: self) { sysMouseMoved(sys, $0, x, y) }
+  }
+
+  override func mouseMoved(with event: NSEvent) {
+    let (x, y) = systemLocationFor(event.locationInWindow)
+    withUnsafePointer(to: self) { sysMouseMoved(sys, $0, x, y) }
   }
 
   let sys: UnsafeMutableRawPointer
@@ -72,6 +96,8 @@ class PixelView: NSView {
     self.scaleFactor = scaleFactor
     self.imageBuffer = makeImageBuffer(scaleFactor)
     super.init(frame: NSRect())
+
+    self.addTrackingArea(NSTrackingArea(rect: NSRect(), options: [.mouseMoved, .inVisibleRect, .activeInKeyWindow, .enabledDuringMouseDrag], owner: self))
   }
 
   required init?(coder: NSCoder) {

@@ -39,7 +39,7 @@ Pixel lerp(Pixel const& a, Pixel const& b, float t) {
 void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, LinearGradient const& gradient) {
   for (u32 j = j0; j < j1; ++j) {
     auto p = Point {j + .5f, i + .5f};
-    auto t = dot(p - gradient.position, gradient.direction);
+    auto t = max(0.f, min(1.f, dot(p - gradient.position, gradient.direction)));
     auto& curr = canvas.data[i * canvas.stride + j];
     curr = lerp(gradient.color, curr, t);
   }
