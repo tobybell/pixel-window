@@ -45,4 +45,13 @@ struct Dir {
   Point operator-(Dir const& rhs) { return {x - rhs.x, y - rhs.y}; }
 };
 
+struct Size {
+  float x, y;
+  Point operator*(Point const& rhs) const { return {x * rhs.x, y * rhs.y}; }
+  friend Point operator/(Point const& lhs, Size const& rhs) {
+    return {lhs.x / rhs.x, lhs.y / rhs.y};
+  }
+  Size operator/(Size const& rhs) const { return {x / rhs.x, y / rhs.y}; }
+};
+
 void blit_triangle(Canvas& canvas, Point a, Point b, Point c, LinearGradient const& fill);

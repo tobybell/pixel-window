@@ -13,6 +13,7 @@ extern "C" {
 
 void triangle(Canvas& canvas, float t, Pixel color);
 void bezier(Canvas&, Point, Point, Point, Point);
+void roundRect(Canvas& canvas, Point position);
 
 namespace {
 
@@ -193,15 +194,6 @@ float abs2(Point p) { return p.x * p.x + p.y * p.y; }
 
 float len(Point p) { return sqrt(abs2(p)); }
 
-struct Size {
-  float x, y;
-  Point operator*(Point const& rhs) const { return {x * rhs.x, y * rhs.y}; }
-  friend Point operator/(Point const& lhs, Size const& rhs) {
-    return {lhs.x / rhs.x, lhs.y / rhs.y};
-  }
-  Size operator/(Size const& rhs) const { return {x / rhs.x, y / rhs.y}; }
-};
-
 struct System {
   void (*redraw)(void const*);
 
@@ -232,6 +224,8 @@ struct System {
         p[i] = sizeChange * p[i];
       size = newSize;
     }
+
+    roundRect(canvas, {100.f, 100.f});
 
     // triangle(canvas, t, red);
     bezier(canvas, p[0], p[1], p[2], p[3]);

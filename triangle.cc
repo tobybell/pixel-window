@@ -61,7 +61,7 @@ Dir make_dir(float t) {
   return {cos(t), sin(t)};
 }
 
-void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, LinearGradient const& gradient, float s0, float s1) {
+void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, float s0, float s1, auto const& fill) {
   check(dx >= 0.f);
   check(dy >= 0.f);
 
@@ -93,7 +93,7 @@ void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, 
     auto dy = y - y0;
     auto j0 = tmp_to_pixel(x0 + dy * slope1);
     auto j1 = tmp_to_pixel(x0 + dy * slope0);
-    setrow(canvas, i, j0, j1, gradient);
+    setrow(canvas, i, j0, j1, fill);
   }
 
   auto yref = ia < ib ? y1 : y2;
@@ -105,30 +105,30 @@ void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, 
     auto dy = y - yref;
     auto j0 = tmp_to_pixel(x0ref + dy * slope);
     auto j1 = tmp_to_pixel(x1ref + dy * slope);
-    setrow(canvas, i, j0, j1, gradient);
+    setrow(canvas, i, j0, j1, fill);
   }
   for (auto i = i2; i < i3; ++i) {
     auto y = i + .5f;
     auto dy = y - y3;
     auto j0 = tmp_to_pixel(x3 + dy * slope0);
     auto j1 = tmp_to_pixel(x3 + dy * slope1);
-    setrow(canvas, i, j0, j1, gradient);
+    setrow(canvas, i, j0, j1, fill);
   }
 }
 
 auto p90(Dir d) -> Dir { return {-d.y, d.x}; }
 auto m90(Dir d) -> Dir { return {d.y, -d.x}; }
 
-void blit_rectangle(Canvas& canvas, Point corner, float w, float h, Dir dir, LinearGradient const& gradient) {
+void blit_rectangle_fill(Canvas& canvas, Point corner, float w, float h, Dir dir, auto const& fill) {
   auto x = corner.x;
   auto y = corner.y;
   if (dir.x < 0 && dir.y < 0)
-    return blit_top_rectangle(canvas, x + w * dir.x - h * dir.y, y + w * dir.y + h * dir.x, -dir.x, -dir.y, gradient, w, h);
+    return blit_top_rectangle(canvas, x + w * dir.x - h * dir.y, y + w * dir.y + h * dir.x, -dir.x, -dir.y, w, h, fill);
   if (dir.y < 0)
-    return blit_top_rectangle(canvas, x + w * dir.x, y + w * dir.y, -dir.y, dir.x, gradient, h, w);
+    return blit_top_rectangle(canvas, x + w * dir.x, y + w * dir.y, -dir.y, dir.x, h, w, fill);
   if (dir.x < 0)
-    return blit_top_rectangle(canvas, x - h * dir.y, y + h * dir.x, dir.y, -dir.x, gradient, h, w);
-  return blit_top_rectangle(canvas, x, y, dir.x, dir.y, gradient, w, h);
+    return blit_top_rectangle(canvas, x - h * dir.y, y + h * dir.x, dir.y, -dir.x, h, w, fill);
+  return blit_top_rectangle(canvas, x, y, dir.x, dir.y, w, h, fill);
 }
 
 void blit_triangle_fragment(Canvas& canvas, Point anchor, float left_slope, float right_slope, u32 i0, u32 i1, auto const& fill) {
@@ -211,7 +211,7 @@ void blit_triangle(Canvas& canvas, Point a, Point b, Point c, LinearGradient con
   blit_triangle_fill(canvas, a, b, c, gradient);
 }
 
-void blit_pie_slice(Canvas& canvas, Point c, float r, Dir dir0, Dir dir1, Pixel color) {
+void blit_pie_fill(Canvas& canvas, Point c, float r, Dir dir0, Dir dir1, auto const& fill) {
   auto cx = c.x;
   auto cy = c.y;
   auto r2 = sqr(r);
@@ -227,22 +227,22 @@ void blit_pie_slice(Canvas& canvas, Point c, float r, Dir dir0, Dir dir1, Pixel 
   auto arc0 = [&](float y) { return cx - sqrt(r2 - y * y); };
   auto arc1 = [&](float y) { return cx + sqrt(r2 - y * y); };
 
-  auto row = [&canvas, &cx, &r, &color](u32 i, float y2, float x0, float x1) {
-    auto j0 = tmp_to_pixel(x0);
-    auto j1 = tmp_to_pixel(x1);
-    for (auto j = j0; j < j1; ++j) {
-      auto x2 = sqr(j + .5f - cx);
-      auto d = sqrt(x2 + y2) / r;
-      auto t = d;
-      auto& curr = canvas.data[i * canvas.stride + j];
-      curr = lerp(color, curr, t);
-    }
-  };
+  // auto row = [&canvas, &cx, &r, &color](u32 i, float y2, float x0, float x1) {
+  //   auto j0 = tmp_to_pixel(x0);
+  //   auto j1 = tmp_to_pixel(x1);
+  //   for (auto j = j0; j < j1; ++j) {
+  //     auto x2 = sqr(j + .5f - cx);
+  //     auto d = sqrt(x2 + y2) / r;
+  //     auto t = d;
+  //     auto& curr = canvas.data[i * canvas.stride + j];
+  //     curr = lerp(color, curr, t);
+  //   }
+  // };
 
   auto ream = [&](u32 i0, u32 i1, auto& left, auto& right) {
     for (auto i = i0; i < i1; ++i) {
       auto y = i + .5f - cy;
-      row(i, y * y, left(y), right(y));
+      setrow(canvas, i, tmp_to_pixel(left(y)), tmp_to_pixel(right(y)), fill);
     }
   };
 
@@ -284,9 +284,9 @@ void triangle(Canvas& canvas, float t, Pixel color) {
   auto ac = dir_from_to(a, c);
   auto bc = dir_from_to(b, c);
 
-  blit_pie_slice(canvas, a, half, p90(ac), m90(ab), color);
-  blit_pie_slice(canvas, b, half, p90(-ab), m90(bc), color);
-  blit_pie_slice(canvas, c, half, p90(-bc), m90(-ac), color);
+  blit_pie_fill(canvas, a, half, p90(ac), m90(ab), color);
+  blit_pie_fill(canvas, b, half, p90(-ab), m90(bc), color);
+  blit_pie_fill(canvas, c, half, p90(-bc), m90(-ac), color);
 
   auto gab = LinearGradient {color, bi, p90(-ab) * (1.f / blur)};
   auto gbc = LinearGradient {color, ci, p90(-bc) * (1.f / blur)};
@@ -296,13 +296,13 @@ void triangle(Canvas& canvas, float t, Pixel color) {
   // replace it with a simpler version (the one that just uses a full rectangle
   // for each side, and a single circle for each corner. May slightly
   // under-fill for very acute triangles, but maybe we can accept that.
-  blit_rectangle(canvas, ai, len(ai - ci), half, ac, gca);
-  blit_rectangle(canvas, bi, len(bi - ai), half, -ab, gab);
-  blit_rectangle(canvas, ci, len(ci - bi), half, -bc, gbc);
+  blit_rectangle_fill(canvas, ai, len(ai - ci), half, ac, gca);
+  blit_rectangle_fill(canvas, bi, len(bi - ai), half, -ab, gab);
+  blit_rectangle_fill(canvas, ci, len(ci - bi), half, -bc, gbc);
 
-  blit_rectangle(canvas, a, len(a - c), half, ac, gca);
-  blit_rectangle(canvas, b, len(b - a), half, -ab, gab);
-  blit_rectangle(canvas, c, len(c - b), half, -bc, gbc);
+  blit_rectangle_fill(canvas, a, len(a - c), half, ac, gca);
+  blit_rectangle_fill(canvas, b, len(b - a), half, -ab, gab);
+  blit_rectangle_fill(canvas, c, len(c - b), half, -bc, gbc);
 
   blit_triangle(canvas, a, ai, ai + m90(ab) * half, gab);
   blit_triangle(canvas, a, ai, ai + p90(ac) * half, gca);
@@ -311,3 +311,16 @@ void triangle(Canvas& canvas, float t, Pixel color) {
   blit_triangle(canvas, c, ci, ci + m90(bc) * half, gbc);
   blit_triangle(canvas, c, ci, ci + p90(ac) * half, gca);
 }
+
+void blit_rectangle(Canvas& canvas, Point corner, Size size, Dir dir, Pixel color) {
+  blit_rectangle_fill(canvas, corner, size.x, size.y, dir, color);
+}
+
+void blit_rectangle(Canvas& canvas, Point corner, Size size, Dir dir, LinearGradient const& gradient) {
+  blit_rectangle_fill(canvas, corner, size.x, size.y, dir, gradient);
+}
+
+void blit_pie(Canvas& canvas, Point center, float radius, Dir start, Dir end, Pixel color) {
+  blit_pie_fill(canvas, center, radius, start, end, color);
+}
+
