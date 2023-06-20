@@ -25,6 +25,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     print(window.backingScaleFactor)
     NSApp.activate(ignoringOtherApps: true)
   }
+  
+  func windowWillClose(_: Notification) {
+    NSApplication.shared.stop(nil)
+  }
 }
 
 func makeImageBuffer(_ scaleFactor: Int) -> vImage_Buffer {
