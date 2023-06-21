@@ -61,6 +61,15 @@ Dir make_dir(float t) {
   return {cos(t), sin(t)};
 }
 
+void blit_triangle_fragment(Canvas& canvas, Point anchor, float left_slope, float right_slope, u32 i0, u32 i1, auto const& fill) {
+  for (auto i = i0; i < i1; ++i) {
+    auto y = i + .5f - anchor.y;
+    auto j1 = tmp_to_pixel(anchor.x + y * left_slope);
+    auto j2 = tmp_to_pixel(anchor.x + y * right_slope);
+    setrow(canvas, i, j1, j2, fill);
+  }
+}
+
 void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, float s0, float s1, auto const& fill) {
   check(dx >= 0.f);
   check(dy >= 0.f);
@@ -88,32 +97,19 @@ void blit_top_rectangle(Canvas& canvas, float x0, float y0, float dx, float dy, 
   auto i1 = min(ia, ib);
   auto i2 = max(ia, ib);
 
-  for (auto i = i0; i < i1; ++i) {
-    auto y = i + .5f;
-    auto dy = y - y0;
-    auto j0 = tmp_to_pixel(x0 + dy * slope1);
-    auto j1 = tmp_to_pixel(x0 + dy * slope0);
-    setrow(canvas, i, j0, j1, fill);
-  }
+  blit_triangle_fragment(canvas, {x0, y0}, slope1, slope0, i0, i1, fill);
 
   auto yref = ia < ib ? y1 : y2;
   auto x0ref = ia < ib ? x0 + slope1 * (s0 * dy) : x2;
   auto x1ref = ia < ib ? x1 : x0 + slope0 * (s1 * dx);
   auto slope = ia < ib ? slope1 : slope0;
   for (auto i = i1; i < i2; ++i) {
-    auto y = i + .5f;
-    auto dy = y - yref;
+    auto dy = i + .5f - yref;
     auto j0 = tmp_to_pixel(x0ref + dy * slope);
     auto j1 = tmp_to_pixel(x1ref + dy * slope);
     setrow(canvas, i, j0, j1, fill);
   }
-  for (auto i = i2; i < i3; ++i) {
-    auto y = i + .5f;
-    auto dy = y - y3;
-    auto j0 = tmp_to_pixel(x3 + dy * slope0);
-    auto j1 = tmp_to_pixel(x3 + dy * slope1);
-    setrow(canvas, i, j0, j1, fill);
-  }
+  blit_triangle_fragment(canvas, {x3, y3}, slope0, slope1, i2, i3, fill);
 }
 
 auto p90(Dir d) -> Dir { return {-d.y, d.x}; }
@@ -129,15 +125,6 @@ void blit_rectangle_fill(Canvas& canvas, Point corner, float w, float h, Dir dir
   if (dir.x < 0)
     return blit_top_rectangle(canvas, x - h * dir.y, y + h * dir.x, dir.y, -dir.x, h, w, fill);
   return blit_top_rectangle(canvas, x, y, dir.x, dir.y, w, h, fill);
-}
-
-void blit_triangle_fragment(Canvas& canvas, Point anchor, float left_slope, float right_slope, u32 i0, u32 i1, auto const& fill) {
-  for (auto i = i0; i < i1; ++i) {
-    auto y = i + .5f - anchor.y;
-    auto j1 = tmp_to_pixel(anchor.x + y * left_slope);
-    auto j2 = tmp_to_pixel(anchor.x + y * right_slope);
-    setrow(canvas, i, j1, j2, fill);
-  }
 }
 
 void blit_top_triangle(Canvas& canvas, Point a, Point b, Point c, auto const& fill) {
