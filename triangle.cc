@@ -310,4 +310,3 @@ void blit_rectangle(Canvas& canvas, Point corner, Size size, Dir dir, LinearGrad
 void blit_pie(Canvas& canvas, Point center, float radius, Dir start, Dir end, Pixel color) {
   blit_pie_fill(canvas, center, radius, start, end, color);
 }
-

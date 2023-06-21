@@ -21,8 +21,8 @@ struct Canvas {
 
 struct Point {
   float x, y;
-  Point operator+(Point const& rhs) { return {x + rhs.x, y + rhs.y}; }
-  Point operator-(Point const& rhs) { return {x - rhs.x, y - rhs.y}; }
+  Point operator+(Point const& rhs) const { return {x + rhs.x, y + rhs.y}; }
+  Point operator-(Point const& rhs) const { return {x - rhs.x, y - rhs.y}; }
   Point operator*(float scale) { return {x * scale, y * scale}; }
   Point operator/(float scale) { return *this * (1.f / scale); }
   friend float dot(Point a, Point b) { return a.x * b.x + a.y * b.y; }
@@ -55,3 +55,9 @@ struct Size {
 };
 
 void blit_triangle(Canvas& canvas, Point a, Point b, Point c, LinearGradient const& fill);
+
+namespace PW {
+
+void point(Canvas& canvas, Point point);
+
+}

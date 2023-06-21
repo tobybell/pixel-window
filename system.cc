@@ -15,7 +15,15 @@ void triangle(Canvas& canvas, float t, Pixel color);
 void bezier(Canvas&, Point, Point, Point, Point);
 void roundRect(Canvas& canvas, Point position);
 
+namespace PW {
+
+void blit_ring(Canvas&, Point center, float inner_radius, float outer_radius, Dir begin, Dir end);
+
+}
+
 namespace {
+
+using namespace PW;
 
 constexpr unsigned square_size = 32;
 
@@ -226,6 +234,8 @@ struct System {
     }
 
     roundRect(canvas, {100.f, 100.f});
+
+    blit_ring(canvas, {.5f * size.x, .5f * size.y}, 30.f, 45.f, {sqrt(.5f), sqrt(.5f)}, {0.f, 1.f});
 
     // triangle(canvas, t, red);
     bezier(canvas, p[0], p[1], p[2], p[3]);

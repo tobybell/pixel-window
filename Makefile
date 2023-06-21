@@ -1,22 +1,18 @@
 CFLAGS = -std=c++20 -Ofast -Wunused -isysroot $(SYSROOT)
 
-build/app: build/app.o build/system.o build/triangle.o build/bezier.o build/round-rect.o
+MODULES = system triangle bezier round-rect point ring
+OBJECTS = $(MODULES:%=build/%.o)
+
+build/app: build/app.o $(OBJECTS)
 	swiftc -o $@ $^
 
 build/app.o: app.swift header.h
 	swiftc -o $@ -c app.swift -O -import-objc-header header.h
 
-build/system.o: system.cc header.h canvas.hh
-	clang++ -o $@ $(CFLAGS) -c $<
-
-build/triangle.o: triangle.cc canvas.hh
-	clang++ -o $@ $(CFLAGS) -c $<
-
-build/bezier.o: bezier.cc canvas.hh
-	clang++ -o $@ $(CFLAGS) -c $<
-
-build/round-rect.o: round-rect.cc canvas.hh
-	clang++ -o $@ $(CFLAGS) -c $<
+build/%.o: %.cc
+	clang++ -o $@ $(CFLAGS) -MD -c $<
 
 run: build/app
 	$<
+
+-include $(OBJECTS:.o=.d)
