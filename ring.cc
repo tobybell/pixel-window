@@ -112,7 +112,7 @@ struct AllEdges {
 
 struct Edges {
   AllEdges const& edge_info;
-  u8 edges[4];
+  u8 edges[8];
   u32 active[8] {};
   u32 edge_count {};
 
@@ -123,13 +123,22 @@ struct Edges {
       if (active1) {
         auto i0 = active[edge0] - 1;
         auto i1 = active[edge1] - 1;
+        active[edge0] = 0;
+        active[edge1] = 0;
         if (i1 < i0)
           std::swap(i0, i1);
-        for (auto i = i0; i + 1 < i1; ++i)
-          edges[i] = edges[i + 1];
-        for (auto i = i1 - 1; i + 2 < edge_count; ++i)
-          edges[i] = edges[i + 2];
+        --i1;
         edge_count -= 2;
+        for (auto i = i0; i < i1; ++i) {
+          auto e = edges[i + 1];
+          active[e] -= 1;
+          edges[i] = e;
+        }
+        for (auto i = i1; i < edge_count; ++i) {
+          auto e = edges[i + 2];
+          active[e] -= 2;
+          edges[i] = e;
+        }
       } else {
         auto i = active[edge0] - 1;
         edges[i] = edge1;
@@ -200,20 +209,27 @@ void blit_ring(Canvas& canvas, Point center, float inner_radius, float outer_rad
   auto y2 = center.y + end.y * inner_radius;
   auto y3 = center.y + end.y * outer_radius;
 
-  if (begin.x < 0.f && end.x > 0.f) {
+  auto neg0 = begin.x < 0.f;
+  auto neg1 = end.x < 0.f;
+  all_edges.push(Line {center + begin * inner_radius, begin.x / begin.y}, y0, y1);
+  all_edges.push(Line {center + end * inner_radius, end.x / end.y}, y2, y3);
+  if (!neg0 && neg1) {
+    all_edges.push(outer_left, center.y + outer_radius, y3);
+    all_edges.push(inner_left, center.y + inner_radius, y2);
+    all_edges.push(inner_right, center.y + inner_radius, y0);
+    all_edges.push(outer_right, center.y + outer_radius, y1);
+  } else if (neg0 && !neg1) {
     all_edges.push(outer_left, center.y - outer_radius, y1);
     all_edges.push(inner_left, center.y - inner_radius, y0);
     all_edges.push(inner_right, center.y - inner_radius, y2);
     all_edges.push(outer_right, center.y - outer_radius, y3);
-  } else if (begin.x < 0.f && end.x < 0.f && end.y < begin.y) {
+  } else if (neg0 && neg1 && end.y < begin.y) {
     all_edges.push(outer_left, y1, y3);
     all_edges.push(inner_left, y0, y2);
   } else {
     all_edges.push(inner_right, y0, y2);
     all_edges.push(outer_right, y1, y3);
   }
-  all_edges.push(Line {center + begin * inner_radius, begin.x / begin.y}, y0, y1);
-  all_edges.push(Line {center + end * inner_radius, end.x / end.y}, y2, y3);
   {
     auto begin = &all_edges.lim[0];
     auto end = &all_edges.lim[2 * all_edges.count];
