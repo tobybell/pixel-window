@@ -213,23 +213,39 @@ void blit_ring(Canvas& canvas, Point center, float inner_radius, float outer_rad
   auto neg1 = end.x < 0.f;
   all_edges.push(Line {center + begin * inner_radius, begin.x / begin.y}, y0, y1);
   all_edges.push(Line {center + end * inner_radius, end.x / end.y}, y2, y3);
-  if (!neg0 && neg1) {
-    all_edges.push(outer_left, center.y + outer_radius, y3);
-    all_edges.push(inner_left, center.y + inner_radius, y2);
-    all_edges.push(inner_right, center.y + inner_radius, y0);
-    all_edges.push(outer_right, center.y + outer_radius, y1);
-  } else if (neg0 && !neg1) {
+
+  if (neg0 && (!neg1 || begin.y < end.y)) {
     all_edges.push(outer_left, center.y - outer_radius, y1);
     all_edges.push(inner_left, center.y - inner_radius, y0);
+  } else if (!neg0 && (neg1 || end.y < begin.y)) {
+    all_edges.push(inner_right, center.y + inner_radius, y0);
+    all_edges.push(outer_right, center.y + outer_radius, y1);
+  }
+  if (neg1 && (!neg0 || begin.y < end.y)) {
+    all_edges.push(outer_left, center.y + outer_radius, y3);
+    all_edges.push(inner_left, center.y + inner_radius, y2);
+  } else if (!neg1 && (neg0 || end.y < begin.y)) {
     all_edges.push(inner_right, center.y - inner_radius, y2);
     all_edges.push(outer_right, center.y - outer_radius, y3);
-  } else if (neg0 && neg1 && end.y < begin.y) {
-    all_edges.push(outer_left, y1, y3);
-    all_edges.push(inner_left, y0, y2);
-  } else {
-    all_edges.push(inner_right, y0, y2);
-    all_edges.push(outer_right, y1, y3);
   }
+  if (neg0 && neg1) {
+    if (end.y < begin.y) {
+      all_edges.push(outer_left, y1, y3);
+      all_edges.push(inner_left, y0, y2);
+    } else {
+      all_edges.push(inner_right, center.y - inner_radius, center.y + inner_radius);
+      all_edges.push(outer_right, center.y - outer_radius, center.y + outer_radius);
+    }
+  } else if (!neg0 && !neg1) {
+    if (begin.y < end.y) {
+      all_edges.push(inner_right, y0, y2);
+      all_edges.push(outer_right, y1, y3);
+    } else {
+      all_edges.push(outer_left, center.y - outer_radius, center.y + outer_radius);
+      all_edges.push(inner_left, center.y - inner_radius, center.y + inner_radius);
+    }
+  }
+
   {
     auto begin = &all_edges.lim[0];
     auto end = &all_edges.lim[2 * all_edges.count];

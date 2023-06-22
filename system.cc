@@ -238,7 +238,7 @@ struct System {
 
     t += .1f;
     auto dir0 = Dir {cos(t), sin(t)};
-    auto dir1 = Dir {cos(t + 1.f), sin(t + 1.f)};
+    auto dir1 = Dir {cos(1.1f * t), sin(1.1f * t)};
 
     blit_ring(canvas, {.5f * size.x, .5f * size.y}, 30.f, 45.f, dir0, dir1);
 
