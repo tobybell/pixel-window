@@ -100,13 +100,17 @@ struct AllEdges {
 
   template <class T>
   void push(T const& edge, float y0, float y1) {
+    auto i0 = static_cast<u32>(y0 + .5f);
+    auto i1 = static_cast<u32>(y1 + .5f);
+    if (i0 == i1)
+      return;
     auto index = count++;
     static_assert(sizeof(T) == 12);
     static_assert(alignof(T) == 4);
     reinterpret_cast<T&>(edge_data[index]) = edge;
     type[index] = EdgeType<T>::value;
-    lim[2 * index] = {index, static_cast<u32>(y0 + .5f)};
-    lim[2 * index + 1] = {index, static_cast<u32>(y1 + .5f)};
+    lim[2 * index] = {index, i0};
+    lim[2 * index + 1] = {index, i1};
   }
 };
 
@@ -165,10 +169,12 @@ struct Edges {
     for (auto i = i0; i < i1; ++i) {
       auto y = i + .5f;
 
+      u32 jso[8];
       u32 js[8];
       for (auto k = 0; k < edge_count; ++k) {
         auto e = edges[k];
         js[k] = to_pixel(eval_edge(edge_info.type[e], edge_info.edge_data[e], y));
+        jso[k] = js[k];
       }
       std::sort(&js[0], &js[edge_count]);
 
@@ -182,69 +188,55 @@ struct Edges {
 }
 
 void blit_ring(Canvas& canvas, Point center, float inner_radius, float outer_radius, Dir begin, Dir end) {
-  // auto color = Pixel {255, 0, 100, 150};
-
-  // what are all the combinations we could have?
-
-  // if (begin.x < 0.f && end.x < 0.f) {
-
-  // }
-
   AllEdges all_edges;
 
-  // we could have 2 left pieces, 2 right pieces
   auto inner_right = RightArc {center, sqr(inner_radius)};
   auto outer_right = RightArc {center, sqr(outer_radius)};
   auto inner_left = LeftArc {center, sqr(inner_radius)};
   auto outer_left = LeftArc {center, sqr(outer_radius)};
 
-  // auto neg0 = begin.x < 0.f;
-  // auto neg1 = end.x < 0.f;
-  // if (neg0 && neg1) {
-  //   all_edges.push(LeftArc {center, sqr(outer_radius)});
-  //   all_edges.push(LeftArc {center, sqr(inner_radius)});
-  // } else {
-  auto y0 = center.y + begin.y * inner_radius;
-  auto y1 = center.y + begin.y * outer_radius;
-  auto y2 = center.y + end.y * inner_radius;
-  auto y3 = center.y + end.y * outer_radius;
-
   auto neg0 = begin.x < 0.f;
   auto neg1 = end.x < 0.f;
-  all_edges.push(Line {center + begin * inner_radius, begin.x / begin.y}, y0, y1);
-  all_edges.push(Line {center + end * inner_radius, end.x / end.y}, y2, y3);
+
+  if (begin.y != 0.f)
+    all_edges.push(Line {center + begin * inner_radius, begin.x / begin.y}, center.y + begin.y * inner_radius, center.y + begin.y * outer_radius);
+  if (end.y != 0.f)
+    all_edges.push(Line {center + end * inner_radius, end.x / end.y}, center.y + end.y * inner_radius, center.y + end.y * outer_radius);
 
   if (neg0 && (!neg1 || begin.y < end.y)) {
-    all_edges.push(outer_left, center.y - outer_radius, y1);
-    all_edges.push(inner_left, center.y - inner_radius, y0);
+    all_edges.push(outer_left, center.y - outer_radius, center.y + begin.y * outer_radius);
+    all_edges.push(inner_left, center.y - inner_radius, center.y + begin.y * inner_radius);
   } else if (!neg0 && (neg1 || end.y < begin.y)) {
-    all_edges.push(inner_right, center.y + inner_radius, y0);
-    all_edges.push(outer_right, center.y + outer_radius, y1);
+    all_edges.push(inner_right, center.y + inner_radius, center.y + begin.y * inner_radius);
+    all_edges.push(outer_right, center.y + outer_radius, center.y + begin.y * outer_radius);
   }
   if (neg1 && (!neg0 || begin.y < end.y)) {
-    all_edges.push(outer_left, center.y + outer_radius, y3);
-    all_edges.push(inner_left, center.y + inner_radius, y2);
+    all_edges.push(outer_left, center.y + outer_radius, center.y + end.y * outer_radius);
+    all_edges.push(inner_left, center.y + inner_radius, center.y + end.y * inner_radius);
   } else if (!neg1 && (neg0 || end.y < begin.y)) {
-    all_edges.push(inner_right, center.y - inner_radius, y2);
-    all_edges.push(outer_right, center.y - outer_radius, y3);
+    all_edges.push(inner_right, center.y - inner_radius, center.y + end.y * inner_radius);
+    all_edges.push(outer_right, center.y - outer_radius, center.y + end.y * outer_radius);
   }
   if (neg0 && neg1) {
-    if (end.y < begin.y) {
-      all_edges.push(outer_left, y1, y3);
-      all_edges.push(inner_left, y0, y2);
-    } else {
+    if (begin.y < end.y) {
       all_edges.push(inner_right, center.y - inner_radius, center.y + inner_radius);
       all_edges.push(outer_right, center.y - outer_radius, center.y + outer_radius);
+    } else {
+      all_edges.push(outer_left, center.y + begin.y * outer_radius, center.y + end.y * outer_radius);
+      all_edges.push(inner_left, center.y + begin.y * inner_radius, center.y + end.y * inner_radius);
     }
   } else if (!neg0 && !neg1) {
-    if (begin.y < end.y) {
-      all_edges.push(inner_right, y0, y2);
-      all_edges.push(outer_right, y1, y3);
-    } else {
+    if (end.y < begin.y) {
       all_edges.push(outer_left, center.y - outer_radius, center.y + outer_radius);
       all_edges.push(inner_left, center.y - inner_radius, center.y + inner_radius);
+    } else {
+      all_edges.push(inner_right, center.y + begin.y * inner_radius, center.y + end.y * inner_radius);
+      all_edges.push(outer_right, center.y + begin.y * outer_radius, center.y + end.y * outer_radius);
     }
   }
+
+  if (!all_edges.count)
+    return;
 
   {
     auto begin = &all_edges.lim[0];
