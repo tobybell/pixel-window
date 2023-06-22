@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
 
 namespace PW {
 
@@ -80,59 +81,94 @@ int to_pixel(float coord) {
 
 constexpr Pixel debug_color {255, 255, 0, 255};
 
+void check(bool condition) {
+  if (!condition)
+    abort();
+}
+
+struct EdgeLimit {
+  u32 edge;
+  u32 i;
+  bool operator<(EdgeLimit const& rhs) const { return i < rhs.i; }
+};
 
 struct AllEdges {
-  float edge_data[4][3];
-  u8 type[4];
+  float edge_data[8][3];
+  EdgeLimit lim[16];
+  u8 type[8];
+  u32 count {};
+
   template <class T>
-  void set(u32 index, T const& edge) {
+  void push(T const& edge, float y0, float y1) {
+    auto index = count++;
     static_assert(sizeof(T) == 12);
     static_assert(alignof(T) == 4);
     reinterpret_cast<T&>(edge_data[index]) = edge;
     type[index] = EdgeType<T>::value;
+    lim[2 * index] = {index, static_cast<u32>(y0 + .5f)};
+    lim[2 * index + 1] = {index, static_cast<u32>(y1 + .5f)};
   }
 };
 
 struct Edges {
   AllEdges const& edge_info;
   u8 edges[4];
+  u32 active[8] {};
   u32 edge_count {};
+
+  void update(u32 edge0, u32 edge1) {
+    auto active0 = !!active[edge0];
+    auto active1 = !!active[edge1];
+    if (active0) {
+      if (active1) {
+        auto i0 = active[edge0] - 1;
+        auto i1 = active[edge1] - 1;
+        if (i1 < i0)
+          std::swap(i0, i1);
+        for (auto i = i0; i + 1 < i1; ++i)
+          edges[i] = edges[i + 1];
+        for (auto i = i1 - 1; i + 2 < edge_count; ++i)
+          edges[i] = edges[i + 2];
+        edge_count -= 2;
+      } else {
+        auto i = active[edge0] - 1;
+        edges[i] = edge1;
+        active[edge0] = 0;
+        active[edge1] = i + 1;
+      }
+    } else {
+      if (active1) {
+        auto i = active[edge1] - 1;
+        edges[i] = edge0;
+        active[edge0] = i + 1;
+        active[edge1] = 0;
+      } else {
+        edges[edge_count] = edge0;
+        edges[edge_count + 1] = edge1;
+        active[edge0] = edge_count + 1;
+        active[edge1] = edge_count + 2;
+        edge_count += 2;
+      }
+    }
+  }
 
   void blit(Canvas& canvas, u32 i0, u32 i1) {
     for (auto i = i0; i < i1; ++i) {
       auto y = i + .5f;
+
+      u32 js[8];
+      for (auto k = 0; k < edge_count; ++k) {
+        auto e = edges[k];
+        js[k] = to_pixel(eval_edge(edge_info.type[e], edge_info.edge_data[e], y));
+      }
+      std::sort(&js[0], &js[edge_count]);
+
       for (auto k = 0; k < edge_count; k += 2) {
-        auto e0 = edges[k];
-        auto e1 = edges[k + 1];
-        auto j0 = to_pixel(eval_edge(edge_info.type[e0], edge_info.edge_data[e0], y));
-        auto j1 = to_pixel(eval_edge(edge_info.type[e1], edge_info.edge_data[e1], y));
-        setrow(canvas, i, j0, j1, debug_color);
+        setrow(canvas, i, js[k], js[k + 1], debug_color);
       }
     }
   }
 };
-
-struct Poin {
-  int i;
-  u8 type;
-  u8 first_edge;
-  u8 second_edge;
-};
-
-void apply_poin(Edges& edges, Poin const& poin) {
-  switch (poin.type) {
-    case 0:
-      edges.edges[edges.edge_count++] = poin.first_edge;
-      edges.edges[edges.edge_count++] = poin.second_edge;
-      return;
-    case 1:
-      edges.edges[poin.first_edge] = poin.second_edge;
-      return;
-    case 2:
-      edges.edge_count -= 2;  // TODO: shift everything down
-      return;
-  }
-}
 
 }
 
@@ -141,57 +177,56 @@ void blit_ring(Canvas& canvas, Point center, float inner_radius, float outer_rad
 
   // what are all the combinations we could have?
 
-  auto inner_arc = RightArc {center, sqr(inner_radius)};
-  auto outer_arc = RightArc {center, sqr(outer_radius)};
-  auto begin_cap = Line {center + begin * inner_radius, begin.x / begin.y};
-  auto end_cap = Line {center + end * inner_radius, end.x / end.y};
-  // debug_edge(canvas, inner_arc);
-  // debug_edge(canvas, outer_arc);
-  // debug_edge(canvas, begin_cap);
-  // debug_edge(canvas, end_cap);
+  // if (begin.x < 0.f && end.x < 0.f) {
+
+  // }
 
   AllEdges all_edges;
-  all_edges.set(0, inner_arc);
-  all_edges.set(1, outer_arc);
-  all_edges.set(2, begin_cap);
-  all_edges.set(3, end_cap);
 
-  // for the arc, we may want to split into 2. But for now let's assume we know
-  // we don't.
+  // we could have 2 left pieces, 2 right pieces
+  auto inner_right = RightArc {center, sqr(inner_radius)};
+  auto outer_right = RightArc {center, sqr(outer_radius)};
+  auto inner_left = LeftArc {center, sqr(inner_radius)};
+  auto outer_left = LeftArc {center, sqr(outer_radius)};
 
-  auto pt_begin_inner = center + begin * inner_radius;
-  auto pt_begin_outer = center + begin * outer_radius;
-  auto pt_end_inner = center + end * inner_radius;
-  auto pt_end_outer = center + end * outer_radius;
+  // auto neg0 = begin.x < 0.f;
+  // auto neg1 = end.x < 0.f;
+  // if (neg0 && neg1) {
+  //   all_edges.push(LeftArc {center, sqr(outer_radius)});
+  //   all_edges.push(LeftArc {center, sqr(inner_radius)});
+  // } else {
+  auto y0 = center.y + begin.y * inner_radius;
+  auto y1 = center.y + begin.y * outer_radius;
+  auto y2 = center.y + end.y * inner_radius;
+  auto y3 = center.y + end.y * outer_radius;
 
-  Edges edges {all_edges};
-
-  Poin P[4] {
-    {to_pixel(pt_begin_inner.y), 0, 0, 2},
-    {to_pixel(pt_begin_outer.y), 1, 1, 1},
-    {to_pixel(pt_end_inner.y), 1, 0, 3},
-    {to_pixel(pt_end_outer.y), 2, 0, 1}};
-  // u8 type[4] {0, 1, 1, 2};  // 0 = create, 1 = replace, 2 = end
-
-  auto i_curr = P[0].i;
-  apply_poin(edges, P[0]);
-  
-  for (u32 i = 1; i < 4; ++i) {
-    auto i_next = P[i].i;
-    edges.blit(canvas, i_curr, i_next);
-    apply_poin(edges, P[i]);
-    i_curr = i_next;
+  if (begin.x < 0.f && end.x > 0.f) {
+    all_edges.push(outer_left, center.y - outer_radius, y1);
+    all_edges.push(inner_left, center.y - inner_radius, y0);
+    all_edges.push(inner_right, center.y - inner_radius, y2);
+    all_edges.push(outer_right, center.y - outer_radius, y3);
+  } else if (begin.x < 0.f && end.x < 0.f && end.y < begin.y) {
+    all_edges.push(outer_left, y1, y3);
+    all_edges.push(inner_left, y0, y2);
+  } else {
+    all_edges.push(inner_right, y0, y2);
+    all_edges.push(outer_right, y1, y3);
   }
+  all_edges.push(Line {center + begin * inner_radius, begin.x / begin.y}, y0, y1);
+  all_edges.push(Line {center + end * inner_radius, end.x / end.y}, y2, y3);
+  {
+    auto begin = &all_edges.lim[0];
+    auto end = &all_edges.lim[2 * all_edges.count];
+    std::sort(begin, end);
 
-  // Now, make list of y coordinates, and which edges they join. If both edges
-  // go down, then it's a "start point". If both edges go up, then it's an "end
-  // point". If one goes up and one goes down, it's a "change point".
-  // float y_coords[4] = {
-  // };
-
-  // enumerate all the fragments, in such a way that they never duplicate y
-  // values.
-  // Go from top to bottom. Blit.
+    Edges edges {all_edges};
+    edges.update(begin[0].edge, begin[1].edge);
+    for (auto it = begin + 2; it != end; it += 2) {
+      edges.blit(canvas, it[-1].i, it[0].i);
+      check(it[0].i == it[1].i);
+      edges.update(it[0].edge, it[1].edge);
+    }
+  }
 }
 
 }

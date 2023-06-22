@@ -4,7 +4,7 @@ MODULES = system triangle bezier round-rect point ring
 OBJECTS = $(MODULES:%=build/%.o)
 
 build/app: build/app.o $(OBJECTS)
-	swiftc -o $@ $^
+	swiftc -o $@ -lc++ $^
 
 build/app.o: app.swift header.h
 	swiftc -o $@ -c app.swift -O -import-objc-header header.h
@@ -14,5 +14,8 @@ build/%.o: %.cc
 
 run: build/app
 	$<
+
+clean:
+	rm build/*.o
 
 -include $(OBJECTS:.o=.d)

@@ -216,6 +216,7 @@ struct System {
   bool over_handle[2] {};
 
   u32 dragged_point = 0;
+  float t = 0.f;
 
   static constexpr float handle_radius = 5.f;
 
@@ -235,7 +236,11 @@ struct System {
 
     roundRect(canvas, {100.f, 100.f});
 
-    blit_ring(canvas, {.5f * size.x, .5f * size.y}, 30.f, 45.f, {sqrt(.5f), sqrt(.5f)}, {0.f, 1.f});
+    t += .1f;
+    auto dir0 = Dir {cos(t), sin(t)};
+    auto dir1 = Dir {cos(t + 1.f), sin(t + 1.f)};
+
+    blit_ring(canvas, {.5f * size.x, .5f * size.y}, 30.f, 45.f, dir0, dir1);
 
     // triangle(canvas, t, red);
     bezier(canvas, p[0], p[1], p[2], p[3]);
