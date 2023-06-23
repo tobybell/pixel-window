@@ -118,11 +118,11 @@ struct Edges {
 
   struct Checkpoint {
     float x;
-    bool fill;
+    u32 fill;
     bool operator<(Checkpoint const& rhs) const { return x < rhs.x; }
   };
 
-  void blit(Canvas& canvas, u32 i0, u32 i1, RadialGradient const& radial) {
+  void blit(Canvas& canvas, u32 i0, u32 i1) {
     for (auto i = i0; i < i1; ++i) {
       auto y = i + .5f;
 
@@ -141,7 +141,7 @@ struct Edges {
         auto const& next = js[k];
         auto next_j = to_pixel(next.x);
         if (next_j > cur_j && cur_fill)
-          setrow(canvas, i, cur_j, next_j, radial);
+          setrow(canvas, i, cur_j, next_j, reinterpret_cast<RadialGradient const&>(edge_info.fill_data[cur_fill - 1]));
         cur_j = next_j;
         cur_fill = next.fill;
       }
@@ -151,7 +151,7 @@ struct Edges {
 
 }
 
-void render(Canvas& canvas, AllEdges& edges, RadialGradient const& radial) {
+void render(Canvas& canvas, AllEdges& edges) {
   auto begin = &edges.lim[0];
   auto end = &edges.lim[2 * edges.count];
   std::sort(begin, end);
@@ -159,7 +159,7 @@ void render(Canvas& canvas, AllEdges& edges, RadialGradient const& radial) {
   Edges renderer {edges};
   renderer.update(begin[0].edge, begin[1].edge);
   for (auto it = begin + 2; it != end; it += 2) {
-    renderer.blit(canvas, it[-1].i, it[0].i, radial);
+    renderer.blit(canvas, it[-1].i, it[0].i);
     check(it[0].i == it[1].i);
     renderer.update(it[0].edge, it[1].edge);
   }

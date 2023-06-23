@@ -38,6 +38,7 @@ struct LinearGradient {
 };
 
 struct RadialGradient {
+  enum { fill_type = 0 };
   Pixel color;
   Point position;
   float start_radius;

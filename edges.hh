@@ -28,13 +28,16 @@ struct EdgeLimit {
 };
 
 struct AllEdges {
+  u32 fill_data[8][5];
+  u8 fill_type[8];
+  u32 fill_count {};
   float edge_data[8][3];
-  EdgeLimit lim[16];
   u8 type[8];
-  bool fill[8];
+  u32 fill[8];
   u32 count {};
+  EdgeLimit lim[16];
 };
 
-void render(Canvas& canvas, AllEdges& edges, RadialGradient const& radial);
+void render(Canvas& canvas, AllEdges& edges);
 
 }
