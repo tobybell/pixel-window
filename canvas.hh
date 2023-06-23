@@ -25,13 +25,23 @@ struct Point {
   Point operator-(Point const& rhs) const { return {x - rhs.x, y - rhs.y}; }
   Point operator*(float scale) { return {x * scale, y * scale}; }
   Point operator/(float scale) { return *this * (1.f / scale); }
-  friend float dot(Point a, Point b) { return a.x * b.x + a.y * b.y; }
+  friend float dot(Point const& a, Point const& b) {
+    return a.x * b.x + a.y * b.y;
+  }
+  friend float abs2(Point const& p) { return dot(p, p); }
 };
 
 struct LinearGradient {
   Pixel color;
   Point position;
   Point direction;
+};
+
+struct RadialGradient {
+  Pixel color;
+  Point position;
+  float start_radius;
+  float thickness;
 };
 
 struct Dir {
@@ -55,6 +65,12 @@ struct Size {
 };
 
 void blit_triangle(Canvas& canvas, Point a, Point b, Point c, LinearGradient const& fill);
+
+template <class T>
+T const& max(T const& a, T const& b) { return (a < b) ? b : a; }
+
+template <class T>
+T const& min(T const& a, T const& b) { return (a < b) ? a : b; }
 
 namespace PW {
 

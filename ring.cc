@@ -1,4 +1,5 @@
 #include "canvas.hh"
+#include "math.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -12,6 +13,23 @@ namespace {
 void setrow(Canvas& canvas, u32 i, u32 j1, u32 j2, Pixel color) {
   for (u32 j = j1; j < j2; ++j)
     canvas.data[i * canvas.stride + j] = color;
+}
+
+// dedup
+Pixel lerp(Pixel const& a, Pixel const& b, float t) {
+  Pixel c;
+  for (auto i = 0u; i < 4u; ++i)
+    c[i] = a[i] + (b[i] - a[i]) * t;
+  return c;
+}
+
+void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, RadialGradient const& radial) {
+  for (u32 j = j0; j < j1; ++j) {
+    auto p = Point {j + .5f, i + .5f};
+    auto t = max(0.f, min(1.f, (len(p - radial.position) - radial.start_radius) / radial.thickness));
+    auto& curr = canvas.data[i * canvas.stride + j];
+    curr = lerp(curr, radial.color, t);
+  }
 }
 
 auto sqr(float value) -> float { return value * value; }
@@ -78,8 +96,6 @@ float eval_edge(u8 type, float const (&data)[3], float y) {
 int to_pixel(float coord) {
   return static_cast<int>(coord + .5f);
 }
-
-constexpr Pixel debug_color {255, 255, 0, 255};
 
 void check(bool condition) {
   if (!condition)
@@ -165,7 +181,7 @@ struct Edges {
     }
   }
 
-  void blit(Canvas& canvas, u32 i0, u32 i1) {
+  void blit(Canvas& canvas, u32 i0, u32 i1, RadialGradient const& radial) {
     for (auto i = i0; i < i1; ++i) {
       auto y = i + .5f;
 
@@ -178,16 +194,15 @@ struct Edges {
       }
       std::sort(&js[0], &js[edge_count]);
 
-      for (auto k = 0; k < edge_count; k += 2) {
-        setrow(canvas, i, js[k], js[k + 1], debug_color);
-      }
+      for (auto k = 0; k < edge_count; k += 2)
+        setrow(canvas, i, js[k], js[k + 1], radial);
     }
   }
 };
 
 }
 
-void blit_ring(Canvas& canvas, Point center, float inner_radius, float outer_radius, Dir begin, Dir end) {
+void blit_ring(Canvas& canvas, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color) {
   AllEdges all_edges;
 
   auto inner_right = RightArc {center, sqr(inner_radius)};
@@ -243,10 +258,12 @@ void blit_ring(Canvas& canvas, Point center, float inner_radius, float outer_rad
     auto end = &all_edges.lim[2 * all_edges.count];
     std::sort(begin, end);
 
+    RadialGradient radial {color, center, outer_radius, inner_radius - outer_radius};
+
     Edges edges {all_edges};
     edges.update(begin[0].edge, begin[1].edge);
     for (auto it = begin + 2; it != end; it += 2) {
-      edges.blit(canvas, it[-1].i, it[0].i);
+      edges.blit(canvas, it[-1].i, it[0].i, radial);
       check(it[0].i == it[1].i);
       edges.update(it[0].edge, it[1].edge);
     }

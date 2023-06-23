@@ -12,8 +12,6 @@ constexpr Pixel color {255, 0, 0, 0};
 
 constexpr float thickness = 1.f;
 
-auto abs2(Point p) -> float { return p.x * p.x + p.y * p.y; }
-
 auto dir(Point p) -> Dir {
   auto d = p / sqrt(abs2(p));
   return {d.x, d.y};

@@ -13,16 +13,6 @@ void check(bool condition) {
     abort();
 }
 
-template <class T>
-T const& max(T const& a, T const& b) {
-  return (a < b) ? b : a;
-}
-
-template <class T>
-T const& min(T const& a, T const& b) {
-  return (a < b) ? a : b;
-}
-
 void setrow(Canvas& canvas, u32 i, u32 j1, u32 j2, Pixel color) {
   for (u32 j = j1; j < j2; ++j)
     canvas.data[i * canvas.stride + j] = color;

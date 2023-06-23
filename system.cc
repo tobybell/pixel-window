@@ -3,6 +3,7 @@ extern "C" {
 }
 
 #include "canvas.hh"
+#include "math.hh"
 
 #include <ctime>
 #include <cstdio>
@@ -13,11 +14,11 @@ extern "C" {
 
 void triangle(Canvas& canvas, float t, Pixel color);
 void bezier(Canvas&, Point, Point, Point, Point);
-void roundRect(Canvas& canvas, Point position);
 
 namespace PW {
 
-void blit_ring(Canvas&, Point center, float inner_radius, float outer_radius, Dir begin, Dir end);
+void roundRect(Canvas& canvas, Point position);
+void blit_ring(Canvas&, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color);
 
 }
 
@@ -198,10 +199,6 @@ Pixel colorNoise(int position, unsigned int seed) {
 [[maybe_unused]] constexpr Pixel red {255, 255, 0, 0};
 [[maybe_unused]] constexpr Pixel light_red {255, 255, 127, 127};
 
-float abs2(Point p) { return p.x * p.x + p.y * p.y; }
-
-float len(Point p) { return sqrt(abs2(p)); }
-
 struct System {
   void (*redraw)(void const*);
 
@@ -239,7 +236,7 @@ struct System {
     t += .1f;
     auto dir0 = Dir {cos(t), sin(t)};
     auto dir1 = Dir {cos(1.1f * t), sin(1.1f * t)};
-    blit_ring(canvas, {.5f * size.x, .5f * size.y}, 30.f, 36.f + 5.f * sin(1.2f * t), dir0, dir1);
+    blit_ring(canvas, {.5f * size.x, .5f * size.y}, 30.f, 36.f + 5.f * sin(1.2f * t), dir0, dir1, {255, 255, 0, 255});
 
     // triangle(canvas, t, red);
     bezier(canvas, p[0], p[1], p[2], p[3]);
