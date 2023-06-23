@@ -31,6 +31,7 @@ struct AllEdges {
   float edge_data[8][3];
   EdgeLimit lim[16];
   u8 type[8];
+  bool fill[8];
   u32 count {};
 };
 

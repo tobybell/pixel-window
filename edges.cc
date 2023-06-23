@@ -116,19 +116,35 @@ struct Edges {
     }
   }
 
+  struct Checkpoint {
+    float x;
+    bool fill;
+    bool operator<(Checkpoint const& rhs) const { return x < rhs.x; }
+  };
+
   void blit(Canvas& canvas, u32 i0, u32 i1, RadialGradient const& radial) {
     for (auto i = i0; i < i1; ++i) {
       auto y = i + .5f;
 
-      u32 js[8];
+      Checkpoint js[8];
       for (auto k = 0; k < edge_count; ++k) {
         auto e = edges[k];
-        js[k] = to_pixel(eval_edge(edge_info.type[e], edge_info.edge_data[e], y));
+        js[k] = {
+          eval_edge(edge_info.type[e], edge_info.edge_data[e], y),
+          edge_info.fill[e]};
       }
       std::sort(&js[0], &js[edge_count]);
 
-      for (auto k = 0; k < edge_count; k += 2)
-        setrow(canvas, i, js[k], js[k + 1], radial);
+      auto cur_j = to_pixel(js[0].x);
+      auto cur_fill = js[0].fill;
+      for (auto k = 1; k < edge_count; ++k) {
+        auto const& next = js[k];
+        auto next_j = to_pixel(next.x);
+        if (next_j > cur_j && cur_fill)
+          setrow(canvas, i, cur_j, next_j, radial);
+        cur_j = next_j;
+        cur_fill = next.fill;
+      }
     }
   }
 };
