@@ -12,41 +12,9 @@ namespace {
 
 auto sqr(float value) -> float { return value * value; }
 
-void check(bool condition) {
-  if (!condition)
-    abort();
 }
 
-template <class T>
-u32 push_fill(AllEdges& edges, T const& fill) {
-  check(edges.fill_count < AllEdges::max_fills);
-  auto index = edges.fill_count++;
-  static_assert(sizeof(T) <= sizeof(edges.fill_data[0]));
-  static_assert(alignof(T) <= alignof(u32));
-  reinterpret_cast<T&>(edges.fill_data[index]) = fill;
-  edges.fill_type[index] = T::fill_type;
-  return index + 1;
-}
-
-template <class T>
-void push(AllEdges& edges, T const& edge, float y0, float y1, u32 fill_right) {
-  auto i0 = static_cast<u32>(y0 + .5f);
-  auto i1 = static_cast<u32>(y1 + .5f);
-  if (i0 == i1)
-    return;
-  auto index = edges.count++;
-  static_assert(sizeof(T) == 12);
-  static_assert(alignof(T) == 4);
-  reinterpret_cast<T&>(edges.edge_data[index]) = edge;
-  edges.type[index] = T::edge_type;
-  edges.fill[index] = fill_right;
-  edges.lim[2 * index] = {index, i0};
-  edges.lim[2 * index + 1] = {index, i1};
-}
-
-}
-
-void blit_ring(AllEdges& edges, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color) {
+void push_ring(AllEdges& edges, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color) {
 
   auto inner_right = RightArc {center, sqr(inner_radius)};
   auto outer_right = RightArc {center, sqr(outer_radius)};
@@ -60,47 +28,47 @@ void blit_ring(AllEdges& edges, Point center, float inner_radius, float outer_ra
     RadialGradient {color, center, outer_radius, inner_radius - outer_radius});
 
   if (begin.y != 0.f)
-    push(edges,
-      Line {center + begin * inner_radius, begin.x / begin.y},
+    push_edge(edges,
       center.y + begin.y * inner_radius,
       center.y + begin.y * outer_radius,
-      begin.y < 0.f ? interior : 0);
+      begin.y < 0.f ? interior : 0,
+      Line {center + begin * inner_radius, begin.x / begin.y});
   if (end.y != 0.f)
-    push(edges,
-      Line {center + end * inner_radius, end.x / end.y},
+    push_edge(edges,
       center.y + end.y * inner_radius,
       center.y + end.y * outer_radius,
-      end.y > 0.f ? interior : 0);
+      end.y > 0.f ? interior : 0,
+      Line {center + end * inner_radius, end.x / end.y});
 
   if (neg0 && (!neg1 || begin.y < end.y)) {
-    push(edges, outer_left, center.y - outer_radius, center.y + begin.y * outer_radius, interior);
-    push(edges, inner_left, center.y - inner_radius, center.y + begin.y * inner_radius, 0);
+    push_edge(edges, center.y - outer_radius, center.y + begin.y * outer_radius, interior, outer_left);
+    push_edge(edges, center.y - inner_radius, center.y + begin.y * inner_radius, 0, inner_left);
   } else if (!neg0 && (neg1 || end.y < begin.y)) {
-    push(edges, inner_right, center.y + inner_radius, center.y + begin.y * inner_radius, interior);
-    push(edges, outer_right, center.y + outer_radius, center.y + begin.y * outer_radius, 0);
+    push_edge(edges, center.y + inner_radius, center.y + begin.y * inner_radius, interior, inner_right);
+    push_edge(edges, center.y + outer_radius, center.y + begin.y * outer_radius, 0, outer_right);
   }
   if (neg1 && (!neg0 || begin.y < end.y)) {
-    push(edges, outer_left, center.y + outer_radius, center.y + end.y * outer_radius, interior);
-    push(edges, inner_left, center.y + inner_radius, center.y + end.y * inner_radius, 0);
+    push_edge(edges, center.y + outer_radius, center.y + end.y * outer_radius, interior, outer_left);
+    push_edge(edges, center.y + inner_radius, center.y + end.y * inner_radius, 0, inner_left);
   } else if (!neg1 && (neg0 || end.y < begin.y)) {
-    push(edges, inner_right, center.y - inner_radius, center.y + end.y * inner_radius, interior);
-    push(edges, outer_right, center.y - outer_radius, center.y + end.y * outer_radius, 0);
+    push_edge(edges, center.y - inner_radius, center.y + end.y * inner_radius, interior, inner_right);
+    push_edge(edges, center.y - outer_radius, center.y + end.y * outer_radius, 0, outer_right);
   }
   if (neg0 && neg1) {
     if (begin.y < end.y) {
-      push(edges, inner_right, center.y - inner_radius, center.y + inner_radius, interior);
-      push(edges, outer_right, center.y - outer_radius, center.y + outer_radius, 0);
+      push_edge(edges, center.y - inner_radius, center.y + inner_radius, interior, inner_right);
+      push_edge(edges, center.y - outer_radius, center.y + outer_radius, 0, outer_right);
     } else {
-      push(edges, outer_left, center.y + begin.y * outer_radius, center.y + end.y * outer_radius, interior);
-      push(edges, inner_left, center.y + begin.y * inner_radius, center.y + end.y * inner_radius, 0);
+      push_edge(edges, center.y + begin.y * outer_radius, center.y + end.y * outer_radius, interior, outer_left);
+      push_edge(edges, center.y + begin.y * inner_radius, center.y + end.y * inner_radius, 0, inner_left);
     }
   } else if (!neg0 && !neg1) {
     if (end.y < begin.y) {
-      push(edges, outer_left, center.y - outer_radius, center.y + outer_radius, interior);
-      push(edges, inner_left, center.y - inner_radius, center.y + inner_radius, 0);
+      push_edge(edges, center.y - outer_radius, center.y + outer_radius, interior, outer_left);
+      push_edge(edges, center.y - inner_radius, center.y + inner_radius, 0, inner_left);
     } else {
-      push(edges, inner_right, center.y + begin.y * inner_radius, center.y + end.y * inner_radius, interior);
-      push(edges, outer_right, center.y + begin.y * outer_radius, center.y + end.y * outer_radius, 0);
+      push_edge(edges, center.y + begin.y * inner_radius, center.y + end.y * inner_radius, interior, inner_right);
+      push_edge(edges, center.y + begin.y * outer_radius, center.y + end.y * outer_radius, 0, outer_right);
     }
   }
 }

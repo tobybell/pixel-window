@@ -32,6 +32,7 @@ struct Point {
 };
 
 struct LinearGradient {
+  enum { fill_type = 2 };
   Pixel color;
   Point position;
   Point direction;
@@ -43,6 +44,11 @@ struct RadialGradient {
   Point position;
   float start_radius;
   float thickness;
+};
+
+struct Solid {
+  enum { fill_type = 1 };
+  Pixel color;
 };
 
 struct Dir {

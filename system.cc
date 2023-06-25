@@ -19,7 +19,7 @@ void bezier(Canvas&, Point, Point, Point, Point);
 namespace PW {
 
 void roundRect(Canvas& canvas, Point position);
-void blit_ring(struct AllEdges&, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color);
+void push_ring(struct AllEdges&, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color);
 
 }
 
@@ -239,7 +239,7 @@ struct System {
     auto dir1 = Dir {cos(1.1f * t), sin(1.1f * t)};
 
     AllEdges edges;
-    blit_ring(edges, {.5f * size.x, .5f * size.y}, 30.f, 36.f + 5.f * sin(1.2f * t), dir0, dir1, {255, 255, 0, 255});
+    push_ring(edges, {.5f * size.x, .5f * size.y}, 30.f, 36.f + 5.f * sin(1.2f * t), dir0, dir1, {255, 255, 0, 255});
     render(canvas, edges);
 
     // triangle(canvas, t, red);

@@ -32,15 +32,15 @@ float eval(Line const& e, float y) {
 }
 
 template <class T>
-float do_eval(float const (&data)[3], float y) {
+float do_eval(EdgeData const& data, float y) {
   return eval(reinterpret_cast<T const&>(data), y);
 }
 
-constexpr float (*evals[3])(float const (&data)[3], float y) {
+constexpr float (*evals[3])(EdgeData const& data, float y) {
   do_eval<Line>, do_eval<LeftArc>, do_eval<RightArc>
 };
 
-float eval_edge(u8 type, float const (&data)[3], float y) {
+float eval_edge(u8 type, EdgeData const& data, float y) {
   return evals[type](data, y);
 }
 
@@ -65,54 +65,41 @@ void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, RadialGradient const& radial)
   }
 }
 
+void setrow(Canvas& canvas, u32 i, u32 j1, u32 j2, Solid const& solid) {
+  for (u32 j = j1; j < j2; ++j)
+    canvas.data[i * canvas.stride + j] = solid.color;
+}
+
+void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, LinearGradient const& gradient) {
+  for (u32 j = j0; j < j1; ++j) {
+    auto p = Point {j + .5f, i + .5f};
+    auto t = max(0.f, min(1.f, dot(p - gradient.position, gradient.direction)));
+    auto& curr = canvas.data[i * canvas.stride + j];
+    curr = lerp(gradient.color, curr, t);
+  }
+}
+
 struct Edges {
   AllEdges const& edge_info;
   u8 edges[AllEdges::max_edges];
   u32 active[AllEdges::max_edges] {};
   u32 edge_count {};
 
-  void update(u32 edge0, u32 edge1) {
-    auto active0 = !!active[edge0];
-    auto active1 = !!active[edge1];
-    if (active0) {
-      if (active1) {
-        auto i0 = active[edge0] - 1;
-        auto i1 = active[edge1] - 1;
-        active[edge0] = 0;
-        active[edge1] = 0;
-        if (i1 < i0)
-          std::swap(i0, i1);
-        --i1;
-        edge_count -= 2;
-        for (auto i = i0; i < i1; ++i) {
-          auto e = edges[i + 1];
-          active[e] -= 1;
-          edges[i] = e;
-        }
-        for (auto i = i1; i < edge_count; ++i) {
-          auto e = edges[i + 2];
-          active[e] -= 2;
-          edges[i] = e;
-        }
-      } else {
-        auto i = active[edge0] - 1;
-        edges[i] = edge1;
-        active[edge0] = 0;
-        active[edge1] = i + 1;
+  void update(u32 edge) {
+    auto i_edge = active[edge];
+    if (i_edge) {
+      --i_edge;
+      active[edge] = 0;
+      edge_count -= 1;
+      for (auto i = i_edge; i < edge_count; ++i) {
+        auto e = edges[i + 1];
+        active[e] -= 1;
+        edges[i] = e;
       }
     } else {
-      if (active1) {
-        auto i = active[edge1] - 1;
-        edges[i] = edge0;
-        active[edge0] = i + 1;
-        active[edge1] = 0;
-      } else {
-        edges[edge_count] = edge0;
-        edges[edge_count + 1] = edge1;
-        active[edge0] = edge_count + 1;
-        active[edge1] = edge_count + 2;
-        edge_count += 2;
-      }
+      edges[edge_count] = edge;
+      active[edge] = edge_count + 1;
+      ++edge_count;
     }
   }
 
@@ -140,8 +127,19 @@ struct Edges {
       for (auto k = 1; k < edge_count; ++k) {
         auto const& next = js[k];
         auto next_j = to_pixel(next.x);
-        if (next_j > cur_j && cur_fill)
-          setrow(canvas, i, cur_j, next_j, reinterpret_cast<RadialGradient const&>(edge_info.fill_data[cur_fill - 1]));
+        if (next_j > cur_j && cur_fill) {
+          switch (edge_info.fill_type[cur_fill - 1]) {
+            case 0:
+              setrow(canvas, i, cur_j, next_j, reinterpret_cast<RadialGradient const&>(edge_info.fill_data[cur_fill - 1]));
+              break;
+            case 1:
+              setrow(canvas, i, cur_j, next_j, reinterpret_cast<Solid const&>(edge_info.fill_data[cur_fill - 1]));
+              break;
+            case 2:
+              setrow(canvas, i, cur_j, next_j, reinterpret_cast<LinearGradient const&>(edge_info.fill_data[cur_fill - 1]));
+              break;
+          }
+        }
         cur_j = next_j;
         cur_fill = next.fill;
       }
@@ -149,6 +147,28 @@ struct Edges {
   }
 };
 
+}  // namespace
+
+u32 push_fill(AllEdges& edges, u8 fill_type, FillData const& fill) {
+  check(edges.fill_count < AllEdges::max_fills);
+  auto index = edges.fill_count++;
+  edges.fill_data[index] = fill;
+  edges.fill_type[index] = fill_type;
+  return index + 1;
+}
+
+void push_edge(AllEdges& edges, float y0, float y1, u32 fill_right, EdgeData const& edge, u8 edge_type) {
+  auto i0 = static_cast<u32>(y0 + .5f);
+  auto i1 = static_cast<u32>(y1 + .5f);
+  if (i0 == i1)
+    return;
+  check(edges.count < AllEdges::max_edges);
+  auto index = edges.count++;
+  edges.edge_data[index] = edge;
+  edges.type[index] = edge_type;
+  edges.fill[index] = fill_right;
+  edges.lim[2 * index] = {index, i0};
+  edges.lim[2 * index + 1] = {index, i1};
 }
 
 void render(Canvas& canvas, AllEdges& edges) {
@@ -160,11 +180,10 @@ void render(Canvas& canvas, AllEdges& edges) {
   std::sort(begin, end);
 
   Edges renderer {edges};
-  renderer.update(begin[0].edge, begin[1].edge);
-  for (auto it = begin + 2; it != end; it += 2) {
+  renderer.update(begin[0].edge);
+  for (auto it = begin + 1; it != end; ++it) {
     renderer.blit(canvas, it[-1].i, it[0].i);
-    check(it[0].i == it[1].i);
-    renderer.update(it[0].edge, it[1].edge);
+    renderer.update(it[0].edge);
   }
 }
 
