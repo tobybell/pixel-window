@@ -1,4 +1,5 @@
 #include "canvas.hh"
+#include "edges.hh"
 
 #include <cmath>
 
@@ -8,7 +9,7 @@ void blit_pie(Canvas& canvas, Point center, float radius, Dir start, Dir end, Pi
 
 namespace PW {
 
-void blit_ring(Canvas&, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color);
+void blit_ring(AllEdges&, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color);
 
 constexpr float rounded = 9.5f;
 constexpr float inner_width = 49.f;
@@ -59,14 +60,17 @@ void roundRect(Canvas& canvas, Point position) {
     position + horizontal * inner_width,
     horizontal * 1.f,
   });
-  blit_ring(canvas, position + horizontal * rounded + vertical * rounded,
+
+  AllEdges edges;
+  blit_ring(edges, position + horizontal * rounded + vertical * rounded,
     rounded, rounded + 1.f, -horizontal, -vertical, color);
-  blit_ring(canvas, position + horizontal * corner_width + vertical * rounded,
+  blit_ring(edges, position + horizontal * corner_width + vertical * rounded,
     rounded, rounded + 1.f, -vertical, horizontal, color);
-  blit_ring(canvas, position + horizontal * rounded + vertical * corner_height,
+  blit_ring(edges, position + horizontal * rounded + vertical * corner_height,
     rounded, rounded + 1.f, vertical, -horizontal, color);
-  blit_ring(canvas, position + horizontal * corner_width + vertical * corner_height,
+  blit_ring(edges, position + horizontal * corner_width + vertical * corner_height,
     rounded, rounded + 1.f, horizontal, vertical, color);
+  render(canvas, edges);
   
 }
 

@@ -28,14 +28,15 @@ struct EdgeLimit {
 };
 
 struct AllEdges {
-  u32 fill_data[8][5];
-  u8 fill_type[8];
+  enum { max_fills = 8, max_edges = 40 };
+  u32 fill_data[max_fills][5];
+  u8 fill_type[max_fills];
   u32 fill_count {};
-  float edge_data[8][3];
-  u8 type[8];
-  u32 fill[8];
+  float edge_data[max_edges][3];
+  u8 type[max_edges];
+  u32 fill[max_edges];
   u32 count {};
-  EdgeLimit lim[16];
+  EdgeLimit lim[2 * max_edges];
 };
 
 void render(Canvas& canvas, AllEdges& edges);

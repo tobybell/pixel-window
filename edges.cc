@@ -67,8 +67,8 @@ void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, RadialGradient const& radial)
 
 struct Edges {
   AllEdges const& edge_info;
-  u8 edges[8];
-  u32 active[8] {};
+  u8 edges[AllEdges::max_edges];
+  u32 active[AllEdges::max_edges] {};
   u32 edge_count {};
 
   void update(u32 edge0, u32 edge1) {
@@ -152,6 +152,9 @@ struct Edges {
 }
 
 void render(Canvas& canvas, AllEdges& edges) {
+  if (!edges.count)
+    return;
+
   auto begin = &edges.lim[0];
   auto end = &edges.lim[2 * edges.count];
   std::sort(begin, end);
