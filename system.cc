@@ -13,7 +13,7 @@ extern "C" {
 #include <algorithm>
 #include <new>
 
-void triangle(Canvas& canvas, float t, Pixel color);
+void triangle(Canvas& canvas, Point, Point, Point, Pixel color);
 void bezier(Canvas&, Point, Point, Point, Point);
 
 namespace PW {
@@ -198,7 +198,12 @@ Pixel colorNoise(int position, unsigned int seed) {
 }
 
 [[maybe_unused]] constexpr Pixel red {255, 255, 0, 0};
+[[maybe_unused]] constexpr Pixel blue {255, 50, 100, 255};
 [[maybe_unused]] constexpr Pixel light_red {255, 255, 127, 127};
+
+Dir make_dir(float t) {
+  return {cos(t), sin(t)};
+}
 
 struct System {
   void (*redraw)(void const*);
@@ -242,7 +247,22 @@ struct System {
     push_ring(edges, {.5f * size.x, .5f * size.y}, 30.f, 36.f + 5.f * sin(1.2f * t), dir0, dir1, {255, 255, 0, 255});
     render(canvas, edges);
 
-    // triangle(canvas, t, red);
+    {
+      auto dir0 = make_dir(.1f * t);
+      auto one_third = Dir {-.5f, .5f * sqrt(3.f)};
+      auto center = Point {.5f * canvas.width, .5f * canvas.height};
+      auto triangle_radius = .35f * canvas.width;
+      auto offset = dir0 * triangle_radius;
+      auto a0 = center + offset;
+      auto b0 = center + one_third * offset;
+      auto c0 = center + one_third * (one_third * offset);
+
+      auto a = a0 + make_dir(.5f * t) * 5.f;
+      auto b = b0 + make_dir(.8f * t + 1.f) * 5.f;
+      auto c = c0 + make_dir(.6f * t + 2.f) * 5.f;
+
+      triangle(canvas, a, b, c, blue);
+    }
     bezier(canvas, p[0], p[1], p[2], p[3]);
 
     if (over_handle[0])

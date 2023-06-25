@@ -47,10 +47,6 @@ int tmp_to_pixel(float coord) {
   return static_cast<int>(ceil(coord - .5f));
 }
 
-Dir make_dir(float t) {
-  return {cos(t), sin(t)};
-}
-
 void blit_triangle_fragment(Canvas& canvas, Point anchor, float left_slope, float right_slope, u32 i0, u32 i1, auto const& fill) {
   for (auto i = i0; i < i1; ++i) {
     auto y = i + .5f - anchor.y;
@@ -235,24 +231,9 @@ void blit_pie_fill(Canvas& canvas, Point c, float r, Dir dir0, Dir dir1, auto co
   ream(min(i0, i_mid), dir0.x < dir1.x ? min(i1, i_mid) : i_mid, edge0, arc1);
 }
 
-void triangle(Canvas& canvas, float t, Pixel color) {
-  auto dir0 = make_dir(.1f * t);
-
-  auto one_third = Dir {-.5f, .5f * sqrt(3.f)};
-
-  auto center = Point {.5f * canvas.width, .5f * canvas.height};
-
-  auto blur = 1.f;
-  auto half = .5f;
-  auto triangle_radius = .35f * canvas.width;
-  auto offset = dir0 * triangle_radius;
-  auto a0 = center + offset;
-  auto b0 = center + one_third * offset;
-  auto c0 = center + one_third * (one_third * offset);
-
-  auto a = a0 + make_dir(.5f * t) * 5.f;
-  auto b = b0 + make_dir(.8f * t + 1.f) * 5.f;
-  auto c = c0 + make_dir(.6f * t + 2.f) * 5.f;
+void triangle(Canvas& canvas, Point a, Point b, Point c, Pixel color) {
+  constexpr auto blur = 1.f;
+  constexpr auto half = .5f * blur;
 
   auto [ai, bi, ci] = inset_triangle({a, b, c}, half).point;
   blit_triangle(canvas, ai, bi, ci, color);
