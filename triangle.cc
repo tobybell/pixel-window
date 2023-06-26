@@ -1,8 +1,11 @@
 #include "canvas.hh"
+#include "math.hh"
 
 #include <cmath>
 #include <cstdio>
 #include <utility>
+
+using namespace PW;
 
 namespace {
 
@@ -32,6 +35,15 @@ void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, LinearGradient const& gradien
     auto t = max(0.f, min(1.f, dot(p - gradient.position, gradient.direction)));
     auto& curr = canvas.data[i * canvas.stride + j];
     curr = lerp(gradient.color, curr, t);
+  }
+}
+
+void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, RadialGradient const& radial) {
+  for (u32 j = j0; j < j1; ++j) {
+    auto p = Point {j + .5f, i + .5f};
+    auto t = max(0.f, min(1.f, (len(p - radial.position) - radial.start_radius) / radial.thickness));
+    auto& curr = canvas.data[i * canvas.stride + j];
+    curr = lerp(curr, radial.color, t);
   }
 }
 
@@ -148,10 +160,6 @@ auto dir_from_to(Point a, Point b) -> Dir {
   return dir(b.x - a.x, b.y - a.y);
 }
 
-auto len(Point p) -> float {
-  return sqrt(p.x * p.x + p.y * p.y);
-}
-
 auto cross(Dir a, Dir b) {
   return a.x * b.y - a.y * b.x;
 }
@@ -242,9 +250,9 @@ void triangle(Canvas& canvas, Point a, Point b, Point c, Pixel color) {
   auto ac = dir_from_to(a, c);
   auto bc = dir_from_to(b, c);
 
-  blit_pie_fill(canvas, a, half, p90(ac), m90(ab), color);
-  blit_pie_fill(canvas, b, half, p90(-ab), m90(bc), color);
-  blit_pie_fill(canvas, c, half, p90(-bc), m90(-ac), color);
+  blit_pie_fill(canvas, ai, blur, p90(ac), m90(ab), RadialGradient {color, ai, blur, -blur});
+  blit_pie_fill(canvas, bi, blur, p90(-ab), m90(bc), RadialGradient {color, bi, blur, -blur});
+  blit_pie_fill(canvas, ci, blur, p90(-bc), m90(-ac), RadialGradient {color, ci, blur, -blur});
 
   auto gab = LinearGradient {color, bi, p90(-ab) * (1.f / blur)};
   auto gbc = LinearGradient {color, ci, p90(-bc) * (1.f / blur)};
@@ -254,20 +262,20 @@ void triangle(Canvas& canvas, Point a, Point b, Point c, Pixel color) {
   // replace it with a simpler version (the one that just uses a full rectangle
   // for each side, and a single circle for each corner. May slightly
   // under-fill for very acute triangles, but maybe we can accept that.
-  blit_rectangle_fill(canvas, ai, len(ai - ci), half, ac, gca);
-  blit_rectangle_fill(canvas, bi, len(bi - ai), half, -ab, gab);
-  blit_rectangle_fill(canvas, ci, len(ci - bi), half, -bc, gbc);
+  blit_rectangle_fill(canvas, ai, len(ai - ci), blur, ac, gca);
+  blit_rectangle_fill(canvas, bi, len(bi - ai), blur, -ab, gab);
+  blit_rectangle_fill(canvas, ci, len(ci - bi), blur, -bc, gbc);
 
-  blit_rectangle_fill(canvas, a, len(a - c), half, ac, gca);
-  blit_rectangle_fill(canvas, b, len(b - a), half, -ab, gab);
-  blit_rectangle_fill(canvas, c, len(c - b), half, -bc, gbc);
+  // blit_rectangle_fill(canvas, a, len(a - c), half, ac, gca);
+  // blit_rectangle_fill(canvas, b, len(b - a), half, -ab, gab);
+  // blit_rectangle_fill(canvas, c, len(c - b), half, -bc, gbc);
 
-  blit_triangle(canvas, a, ai, ai + m90(ab) * half, gab);
-  blit_triangle(canvas, a, ai, ai + p90(ac) * half, gca);
-  blit_triangle(canvas, b, bi, bi + m90(bc) * half, gbc);
-  blit_triangle(canvas, b, bi, bi + m90(ab) * half, gab);
-  blit_triangle(canvas, c, ci, ci + m90(bc) * half, gbc);
-  blit_triangle(canvas, c, ci, ci + p90(ac) * half, gca);
+  // blit_triangle(canvas, a, ai, ai + m90(ab) * half, gab);
+  // blit_triangle(canvas, a, ai, ai + p90(ac) * half, gca);
+  // blit_triangle(canvas, b, bi, bi + m90(bc) * half, gbc);
+  // blit_triangle(canvas, b, bi, bi + m90(ab) * half, gab);
+  // blit_triangle(canvas, c, ci, ci + m90(bc) * half, gbc);
+  // blit_triangle(canvas, c, ci, ci + p90(ac) * half, gca);
 }
 
 void blit_rectangle(Canvas& canvas, Point corner, Size size, Dir dir, Pixel color) {
