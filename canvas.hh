@@ -23,8 +23,8 @@ struct Point {
   float x, y;
   Point operator+(Point const& rhs) const { return {x + rhs.x, y + rhs.y}; }
   Point operator-(Point const& rhs) const { return {x - rhs.x, y - rhs.y}; }
-  Point operator*(float scale) { return {x * scale, y * scale}; }
-  Point operator/(float scale) { return *this * (1.f / scale); }
+  Point operator*(float scale) const { return {x * scale, y * scale}; }
+  Point operator/(float scale) const { return *this * (1.f / scale); }
   friend float dot(Point const& a, Point const& b) {
     return a.x * b.x + a.y * b.y;
   }
@@ -58,8 +58,11 @@ struct Dir {
     return {x * rhs.x - y * rhs.y, x * rhs.y + y * rhs.x};
   }
   Dir operator-() const { return {-x, -y}; }
-  Point operator+(Dir const& rhs) { return {x + rhs.x, y + rhs.y}; }
-  Point operator-(Dir const& rhs) { return {x - rhs.x, y - rhs.y}; }
+  Point operator+(Dir const& rhs) const { return {x + rhs.x, y + rhs.y}; }
+  Point operator-(Dir const& rhs) const { return {x - rhs.x, y - rhs.y}; }
+  friend float dot(Point const& a, Dir const& b) {
+    return a.x * b.x + a.y * b.y;
+  }
 };
 
 struct Size {
@@ -71,6 +74,7 @@ struct Size {
   Size operator/(Size const& rhs) const { return {x / rhs.x, y / rhs.y}; }
 };
 
+void blit_triangle(Canvas& canvas, Point a, Point b, Point c, Pixel color);
 void blit_triangle(Canvas& canvas, Point a, Point b, Point c, LinearGradient const& fill);
 
 template <class T>
@@ -82,5 +86,7 @@ T const& min(T const& a, T const& b) { return (a < b) ? a : b; }
 namespace PW {
 
 void point(Canvas& canvas, Point point);
+
+inline auto cross(Dir a, Dir b) { return a.x * b.y - a.y * b.x; }
 
 }

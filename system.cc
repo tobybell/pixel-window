@@ -20,6 +20,7 @@ namespace PW {
 
 void roundRect(Canvas& canvas, Point position);
 void push_ring(struct AllEdges&, Point center, float inner_radius, float outer_radius, Dir begin, Dir end, Pixel color);
+void star(Canvas& canvas, Point center, float outer_radius, float inner_radius, Dir top);
 
 }
 
@@ -201,10 +202,6 @@ Pixel colorNoise(int position, unsigned int seed) {
 [[maybe_unused]] constexpr Pixel blue {255, 50, 100, 255};
 [[maybe_unused]] constexpr Pixel light_red {255, 255, 127, 127};
 
-Dir make_dir(float t) {
-  return {cos(t), sin(t)};
-}
-
 struct System {
   void (*redraw)(void const*);
 
@@ -272,6 +269,8 @@ struct System {
 
     circle(canvas, p[1], handle_radius, light_red);
     circle(canvas, p[2], handle_radius, light_red);
+
+    star(canvas, {200.f, 100.f}, 60.f, 25.f + 10.f * sin(.25f * t), make_dir(.1f * t));
 
     for (auto i = 0u; i < len(circles); ++i) {
       auto& parameters = circles[i];

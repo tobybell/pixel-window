@@ -1,6 +1,6 @@
 CFLAGS = -std=c++20 -Ofast -Wunused -isysroot $(SYSROOT)
 
-MODULES = system triangle bezier round-rect point ring edges
+MODULES = system triangle bezier round-rect point ring edges star
 OBJECTS = $(MODULES:%=build/%.o)
 
 build/app: build/app.o $(OBJECTS)

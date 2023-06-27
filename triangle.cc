@@ -47,11 +47,6 @@ void setrow(Canvas& canvas, u32 i, u32 j0, u32 j1, RadialGradient const& radial)
   }
 }
 
-auto dir(float x, float y) -> Dir {
-  auto d = 1.f / sqrt(x * x + y * y);
-  return {d * x, d * y};
-}
-
 // dedup
 float sqr(float value) { return value * value; }
 
@@ -156,10 +151,6 @@ void blit_triangle_fill(Canvas& canvas, Point a, Point b, Point c, auto const& f
   return blit_top_triangle(canvas, c, b, a, fill);
 }
 
-auto dir_from_to(Point a, Point b) -> Dir {
-  return dir(b.x - a.x, b.y - a.y);
-}
-
 auto cross(Dir a, Dir b) {
   return a.x * b.y - a.y * b.x;
 }
@@ -182,10 +173,10 @@ Triangle inset_triangle(Triangle triangle, float inset) {
     c - (ac + bc) * nc};
 }
 
-void blit_triangle(Canvas& canvas, Point a, Point b, Point c, Pixel color) {
-  blit_triangle_fill(canvas, a, b, c, color);
 }
 
+void blit_triangle(Canvas& canvas, Point a, Point b, Point c, Pixel color) {
+  blit_triangle_fill(canvas, a, b, c, color);
 }
 
 void blit_triangle(Canvas& canvas, Point a, Point b, Point c, LinearGradient const& gradient) {
@@ -288,4 +279,8 @@ void blit_rectangle(Canvas& canvas, Point corner, Size size, Dir dir, LinearGrad
 
 void blit_pie(Canvas& canvas, Point center, float radius, Dir start, Dir end, Pixel color) {
   blit_pie_fill(canvas, center, radius, start, end, color);
+}
+
+void blit_pie(Canvas& canvas, Point center, float radius, Dir start, Dir end, RadialGradient const& radial) {
+  blit_pie_fill(canvas, center, radius, start, end, radial);
 }
