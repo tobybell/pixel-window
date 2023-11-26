@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <utility>
 
-void blit_pie(Canvas& canvas, Point center, float radius, Dir dir0, Dir dir1, Pixel color);
+void blit_pie(Canvas& canvas, Point center, float radius, Dir dir0, Dir dir1, RadialGradient const&);
 
 namespace {
 
@@ -63,12 +63,12 @@ void bezier(Canvas& canvas, Point p0, Point p1, Point p2, Point p3) {
   {
     auto heading = dir(p0 - p1);
     auto normal = Dir {-heading.y, heading.x};
-    blit_pie(canvas, p0, thickness, -normal, normal, color);
+    blit_pie(canvas, p0, thickness, -normal, normal, {color, p0, thickness, -thickness});
   }
 
   {
     auto heading = dir(p3 - p2);
     auto normal = Dir {-heading.y, heading.x};
-    blit_pie(canvas, p3, thickness, -normal, normal, color);
+    blit_pie(canvas, p3, thickness, -normal, normal, {color, p3, thickness, -thickness});
   }
 }
